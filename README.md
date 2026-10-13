@@ -56,6 +56,9 @@ path. The manifest's removals replace those exact paths only.
 
 ## Prepare and build
 
+Complete **Private signing** below once on your build server before the first
+build. The build script requires your private signing configuration.
+
 From the Android checkout root:
 
 ```bash
@@ -73,11 +76,15 @@ PixelOS's `breakfast` command from the synced sources; do not hard-code it.
 The same steps can be run separately:
 
 ```bash
+python3 .repo/local_manifests/tools/signing.py check
 git -C vendor/google/coral lfs pull
 python3 .repo/local_manifests/tools/prepare.py
 python3 .repo/local_manifests/tools/validate.py --rom-root "$PWD"
 source build/envsetup.sh
 breakfast coral userdebug
+python3 .repo/local_manifests/tools/signing.py check \
+  --active-cert "$(get_build_var PRODUCT_DEFAULT_DEV_CERTIFICATE)" \
+  --active-overrides "$(get_build_var PRODUCT_CERTIFICATE_OVERRIDES)"
 m pixelos
 ```
 
@@ -104,6 +111,70 @@ For a record of all exact commits used by a completed build:
 ```bash
 repo manifest -r -o out/pixelos-coral-source-manifest.xml
 ```
+
+## Private signing
+
+This follows [PixelOS's signing guide](https://blog.pixelos.net/docs/maintainers/guide/signing-build/)
+and its recommended [ItsVixano Lineage signing template](https://github.com/ItsVixano/android_vendor_lineage-priv_keys).
+The reviewed template revision and certificate mappings are recorded in
+`signing-template.lock.json`. PixelOS already includes
+`vendor/lineage-priv/keys/keys.mk` through its common product configuration.
+
+Generate your production keys **on your own build server**. From `~/pixelos`,
+after `repo sync`, create a signing Python environment and prepare the template:
+
+```bash
+python3 -m venv ~/.pixelos-signing/venv
+~/.pixelos-signing/venv/bin/python -m pip install -r .repo/local_manifests/requirements-signing.txt
+python3 .repo/local_manifests/tools/signing.py setup
+nano ~/.pixelos-signing/coral/template/gen_keys_py/config.py
+```
+
+Set `SUBJECTS_PARAMS` to the certificate identity you want to use. Then generate
+the keys once and link their build inputs:
+
+```bash
+~/.pixelos-signing/venv/bin/python .repo/local_manifests/tools/signing.py generate
+python3 .repo/local_manifests/tools/signing.py check
+bash .repo/local_manifests/build.sh
+```
+
+The helper runs the upstream generator with restrictive permissions. Actual
+private key bytes stay in `~/.pixelos-signing/coral/template` and the template's
+standard `~/.android-certs` directory. The Android checkout contains the public
+build makefiles and file symlinks in `vendor/lineage-priv/keys`; key material is
+excluded from Git. The helper adapts the template's AVB-tool symlink to your
+synced `external/avb/avbtool.py`, allowing generation outside the source tree.
+
+The upstream generator reuses existing `~/.android-certs` platform keys. Preserve
+that directory if you already have a signing identity. An existing unrecognized
+`vendor/lineage-priv/keys` directory is preserved and needs migration review.
+
+Keep protected backups of **both** `~/.pixelos-signing/coral` and
+`~/.android-certs`. Reuse the same keys and generated certificates for every
+future update. Do not regenerate or rotate them between builds, upload private
+keys to GitHub/ChatGPT, or include them in CI artifacts. Generation is a one-time
+setup operation; `repo sync` and normal builds only validate/reuse the keys.
+
+The build checks certificate/private-key matches, APEX payload/public-key
+bindings and stored certificate fingerprints. After `breakfast`, it verifies
+that the active default certificate and APK/APEX overrides still select your
+private keys. Missing keys, changed identities or overridden signing settings
+stop the build before compilation.
+
+This configures the template's APK/APEX/OTA signing structure. Coral's bootloader
+and partition AVB configuration are separate from this signing setup.
+The template may produce the Android build tag `dev-keys`; that tag alone does
+not mean public AOSP test keys were used. Verify signing certificates, rather
+than relying only on the displayed build tag.
+
+After building, the target-files package under
+`out/target/product/coral/obj/PACKAGING/target_files_intermediates/` contains
+`META/apkcerts.txt` and `META/apexkeys.txt` for auditing the selected signing
+inputs. The final OTA's certificate should match the generated
+`vendor/lineage-priv/keys/releasekey.x509.pem` certificate. Retain a public
+certificate fingerprint with each released build; retain private backups
+separately.
 
 ## Validation and first phone test
 

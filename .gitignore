@@ -1,2 +1,8 @@
 __pycache__/
 *.pyc
+*.pk8
+*.pem
+*.avbpubkey
+*.pubkey
+.android-certs/
+.pixelos-signing/
