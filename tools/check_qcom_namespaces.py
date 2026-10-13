@@ -38,6 +38,12 @@ def namespace_links(manifest):
 def check(rom, manifest):
     rom = rom.resolve()
     links = namespace_links(manifest)
+    renamed = [str(path.relative_to(rom)) for path in
+               (rom / "hardware/qcom-caf").glob("*.disabled")]
+    if renamed:
+        raise ValueError("Renamed Qualcomm directories remain inside the source tree:\n  " +
+                         "\n  ".join(sorted(renamed)) +
+                         "\nRestore their original paths before regenerating Repo namespace links.")
     source = rom / COMMON / SOURCE
     if not source.resolve().is_relative_to(rom) or not source.is_file():
         raise ValueError("Missing Qualcomm namespace source: " + str(source) + "\nRun:\n" + REPAIR)

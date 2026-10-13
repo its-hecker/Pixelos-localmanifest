@@ -133,6 +133,39 @@ The build helper checks every Qualcomm namespace export selected by the active
 manifest before plugin preparation or compilation. It reports missing or
 mismatched files without changing existing files. Keep ServerHive's RBE enabled.
 
+### Undo local namespace workarounds before rebuilding
+
+Both plugins require `soong_namespace` to precede the named license and other
+modules in their generated `Android.bp`. The templates now enforce that order;
+SPDX comments may still precede the namespace. Editing only generated files is
+temporary because plugin preparation rewrites them.
+
+If ServerHive added namespaces inside CAF media/display files or renamed chipset
+directories to `.disabled`, use this recovery before rebuilding. A `.disabled`
+suffix does not exclude the contained `Android.bp` files from source discovery.
+The helper saves the four affected CAF files, both plugin templates and generated
+root Blueprints in an archive outside the checkout, alongside tracked/staged
+patches and the original revisions. It restores only those tracked files and
+reinstates renamed chipset paths. Other files and the provider's RBE changes are
+left intact. If both an original and `.disabled` directory exist, it stops before
+changing anything rather than overwriting either directory.
+
+```bash
+cd ~/pixelos &&
+git -C .repo/local_manifests pull --ff-only &&
+python3 .repo/local_manifests/tools/recover_namespace_edits.py &&
+repo sync -c -j2 --fail-fast \
+    vendor/hecker/floral/faceid vendor/hecker/floral/motionsense &&
+python3 .repo/local_manifests/tools/restore_checkout.py \
+    --project hardware/qcom-caf/common --restore &&
+repo sync -l -j1 --fail-fast hardware/qcom-caf/common &&
+PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
+```
+
+Keep the printed backup folder until the rebuilt ROM has passed device testing.
+This updates only the plugins and regenerates the existing CAF exports; it does
+not reset the ROM checkout or clear the full build output.
+
 ### Pick up the shared kernel fixes
 
 The manifest pins an exact kernel commit, so updating the shared kernel's branch

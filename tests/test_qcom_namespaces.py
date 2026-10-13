@@ -23,6 +23,13 @@ class QcomNamespaceTests(unittest.TestCase):
     def test_all_upstream_chipset_links_are_valid(self):
         self.assertEqual(check_qcom_namespaces.check(self.rom, self.manifest), 10)
 
+    def test_renamed_chipset_still_inside_source_tree_is_rejected(self):
+        disabled = self.rom / "hardware/qcom-caf/sm8250.disabled"
+        disabled.mkdir()
+        with self.assertRaisesRegex(ValueError, "sm8250.disabled"):
+            check_qcom_namespaces.check(self.rom, self.manifest)
+        self.assertTrue(disabled.is_dir())
+
     def test_missing_chipset_namespace_reports_the_local_sync_repair(self):
         self.destination.unlink()
         with self.assertRaisesRegex(ValueError, "hardware/qcom-caf/sm8250/Android.bp") as error:

@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -99,6 +100,21 @@ def check_namespace_setup(rom):
     print("PASS: " + str(count) + " chipset namespace exports from pinned PixelOS/common sources.")
 
 
+def check_plugin_blueprints(rom):
+    # Regress the actual Soong error: a namespace after a named license module.
+    # Comments (including SPDX headers) may precede the namespace declaration.
+    for name in ("faceid", "motionsense"):
+        path = rom / "vendor/hecker/floral" / name / "Android.bp"
+        source = path.read_text()
+        modules = re.findall(r"(?m)^([A-Za-z_]\w*)\s*\{", source)
+        require(modules and modules[0] == "soong_namespace" and
+                modules.count("soong_namespace") == 1,
+                str(path) + ": soong_namespace must be the first and only namespace module")
+        require("package" in modules and "license" in modules,
+                str(path) + ": plugin package/license metadata was lost")
+    print("PASS: both generated plugin namespaces precede their license modules.")
+
+
 def test(rom, fetch=True):
     manifest()
     lock = json.loads((ROOT / "source-revisions.json").read_text())
@@ -133,6 +149,7 @@ def test(rom, fetch=True):
     first = profiles(rom)
     prepare(rom, offline=True)
     require(profiles(rom) == first, "Repeated setup changed generated outputs")
+    check_plugin_blueprints(rom)
     check_product_make(rom)
     motion = rom / "vendor/hecker/floral/motionsense"
     face = rom / "vendor/hecker/floral/faceid"

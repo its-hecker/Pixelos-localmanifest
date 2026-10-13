@@ -35,10 +35,10 @@
   <!-- Test the standalone plugins, with their own immutable prebuilt locks. -->
   <project name="its-hecker/floral-motionsense-plugin"
            path="vendor/hecker/floral/motionsense" remote="floral-github"
-           revision="908db455d90431bd95128f3a88dbe5ec4d2c8b31"
+           revision="e66def12b97eb37032f270c54e8c94e449c6682e"
            upstream="refs/heads/main" dest-branch="main" />
   <project name="its-hecker/floral-3D-faceid-plugin"
            path="vendor/hecker/floral/faceid" remote="floral-github"
-           revision="8a41d9e73d25241f5b59a6ef92ddd1a6bb2e9a84"
+           revision="a784a5365f1913287e46e072a3d4d61efbf3eed9"
            upstream="refs/heads/main" dest-branch="main" />
 </manifest>
