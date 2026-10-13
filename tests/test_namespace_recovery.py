@@ -113,6 +113,29 @@ class NamespaceRecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "outside the Android source tree"):
             recover(self.rom, self.rom)
 
+    def test_shared_defaults_and_gsl_namespace_workarounds_are_backed_up_and_removed(self):
+        originals = {
+            ("hardware/qcom-caf/common", "Android.bp"):
+                'cc_defaults {\n    name: "android_hardware_qtiaudio_config_defaults",\n}\n',
+            ("hardware/qcom-caf/sm8450/audio/graphservices", "gsl/Android.bp"):
+                'cc_library_shared {\n    name: "libar-gsl",\n'
+                '    defaults: ["android_hardware_qtiaudio_config_defaults"],\n}\n',
+        }
+        for (project, relative), original in originals.items():
+            location = self.rom / project
+            target = location / relative
+            target.write_text(original)
+            git(location, "add", "--", relative)
+            git(location, "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                "commit", "--quiet", "-m", "Use real shared audio dependency shape")
+            target.write_text("soong_namespace {}\n" + original)
+        backup = self.run_recovery()
+        with tarfile.open(backup / "edited-files.tar.gz") as archive:
+            for (project, relative), original in originals.items():
+                self.assertEqual((self.rom / project / relative).read_text(), original)
+                self.assertEqual(archive.extractfile(project + "/" + relative).read(),
+                                 ("soong_namespace {}\n" + original).encode())
+
 
 if __name__ == "__main__":
     unittest.main()

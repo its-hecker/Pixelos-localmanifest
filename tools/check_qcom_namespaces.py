@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 
 COMMON = "hardware/qcom-caf/common"
 SOURCE = "os_pickup_qssi.bp"
+SHARED_AUDIO_DEFAULT = "android_hardware_qtiaudio_config_defaults"
 REPAIR = ("python3 .repo/local_manifests/tools/restore_checkout.py "
           "--project " + COMMON + " --restore\n"
           "repo sync -l -j1 --fail-fast " + COMMON)
@@ -59,6 +60,20 @@ def check(rom, manifest):
     if invalid:
         raise ValueError("Missing or mismatched Qualcomm chipset namespace exports:\n  " +
                          "\n  ".join(invalid) + "\nRun:\n" + REPAIR)
+    common_bp = rom / COMMON / "Android.bp"
+    if not common_bp.resolve().is_relative_to(rom) or not common_bp.is_file():
+        raise ValueError("Missing Qualcomm shared module definitions: " + str(common_bp) +
+                         "\nRun:\n" + REPAIR)
+    shared = common_bp.read_bytes()
+    # Upstream places these defaults in the implicit root namespace, reachable
+    # from all chipset scopes. A local namespace here hides them from every
+    # chipset whose os_pickup_qssi.bp does not import common explicitly.
+    if re.search(rb"(?m)^\s*soong_namespace\s*\{", shared):
+        raise ValueError("Qualcomm common Android.bp has a local namespace that hides shared audio defaults.\n"
+                         "Back up and restore the local namespace edits:\n"
+                         "python3 .repo/local_manifests/tools/recover_namespace_edits.py")
+    if not re.search(rb'name\s*:\s*"' + SHARED_AUDIO_DEFAULT.encode() + rb'"', shared):
+        raise ValueError("Missing shared Qualcomm audio defaults: " + SHARED_AUDIO_DEFAULT)
     return len(links)
 
 

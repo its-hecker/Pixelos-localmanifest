@@ -90,6 +90,11 @@ class BuildPreflightTests(unittest.TestCase):
         self.namespace_source.unlink()
         self.rejected("Missing Qualcomm namespace source")
 
+    def test_common_namespace_hiding_audio_defaults_stops_before_preparation(self):
+        path = self.rom / "hardware/qcom-caf/common/Android.bp"
+        path.write_text("soong_namespace {}\n" + path.read_text())
+        self.rejected("hides shared audio defaults")
+
     def test_different_namespace_file_is_preserved_and_rejected(self):
         path = self.rom / "hardware/qcom-caf/sm8650/Android.bp"
         path.unlink()

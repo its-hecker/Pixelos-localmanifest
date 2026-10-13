@@ -23,6 +23,25 @@ class QcomNamespaceTests(unittest.TestCase):
     def test_all_upstream_chipset_links_are_valid(self):
         self.assertEqual(check_qcom_namespaces.check(self.rom, self.manifest), 10)
 
+    def test_local_common_namespace_is_rejected_even_when_all_chipset_links_match(self):
+        path = self.source.parent / "Android.bp"
+        edited = "soong_namespace {}\n" + path.read_text()
+        path.write_text(edited)
+        with self.assertRaisesRegex(ValueError, "hides shared audio defaults") as error:
+            check_qcom_namespaces.check(self.rom, self.manifest)
+        self.assertIn("recover_namespace_edits.py", str(error.exception))
+        self.assertEqual(path.read_text(), edited)
+
+    def test_missing_common_blueprint_is_rejected(self):
+        (self.source.parent / "Android.bp").unlink()
+        with self.assertRaisesRegex(ValueError, "Missing Qualcomm shared module definitions"):
+            check_qcom_namespaces.check(self.rom, self.manifest)
+
+    def test_missing_shared_audio_default_is_rejected(self):
+        (self.source.parent / "Android.bp").write_text('cc_defaults { name: "different_defaults", }\n')
+        with self.assertRaisesRegex(ValueError, "Missing shared Qualcomm audio defaults"):
+            check_qcom_namespaces.check(self.rom, self.manifest)
+
     def test_renamed_chipset_still_inside_source_tree_is_rejected(self):
         disabled = self.rom / "hardware/qcom-caf/sm8250.disabled"
         disabled.mkdir()

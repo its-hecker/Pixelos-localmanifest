@@ -131,7 +131,9 @@ PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
 
 The build helper checks every Qualcomm namespace export selected by the active
 manifest before plugin preparation or compilation. It reports missing or
-mismatched files without changing existing files. Keep ServerHive's RBE enabled.
+mismatched files without changing existing files. It also verifies that
+`hardware/qcom-caf/common/Android.bp` retains globally visible shared audio
+defaults. Keep ServerHive's RBE enabled.
 
 ### Undo local namespace workarounds before rebuilding
 
@@ -143,7 +145,7 @@ temporary because plugin preparation rewrites them.
 If ServerHive added namespaces inside CAF media/display files or renamed chipset
 directories to `.disabled`, use this recovery before rebuilding. A `.disabled`
 suffix does not exclude the contained `Android.bp` files from source discovery.
-The helper saves the four affected CAF files, both plugin templates and generated
+The helper saves the six affected CAF files, both plugin templates and generated
 root Blueprints in an archive outside the checkout, alongside tracked/staged
 patches and the original revisions. It restores only those tracked files and
 reinstates renamed chipset paths. Other files and the provider's RBE changes are
@@ -165,6 +167,31 @@ PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
 Keep the printed backup folder until the rebuilt ROM has passed device testing.
 This updates only the plugins and regenerates the existing CAF exports; it does
 not reset the ROM checkout or clear the full build output.
+
+### Repair shared Qualcomm audio defaults after namespace recovery
+
+If Soong finds `android_hardware_qtiaudio_config_defaults` only inside namespace
+`hardware/qcom-caf/common`, an additional local namespace has hidden the shared
+defaults. Upstream defines these modules without a namespace in
+`hardware/qcom-caf/common/Android.bp`; chipset namespaces can resolve them through
+the implicit global scope. An extra namespace was also reported in
+`sm8450/audio/graphservices/gsl/Android.bp`, where upstream inherits its chipset
+scope. The recovery helper now backs up and restores both files as well as the
+four earlier CAF workarounds. The build check rejects a scoped common Blueprint
+before plugin preparation or compilation.
+
+After the earlier plugin update has completed, use this shorter recovery:
+
+```bash
+cd ~/pixelos &&
+git -C .repo/local_manifests pull --ff-only &&
+python3 .repo/local_manifests/tools/recover_namespace_edits.py &&
+repo sync -l -j1 --fail-fast hardware/qcom-caf/common &&
+PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
+```
+
+Keep the new printed backup folder. The helper restores only the listed files;
+it does not reset CAF repositories, discard other files, or alter RBE settings.
 
 ### Pick up the shared kernel fixes
 

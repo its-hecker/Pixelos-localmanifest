@@ -23,6 +23,7 @@
       "branch": "lineage-24.0",
       "revision": "5e84e6f8fc47530881fa8d95cf533617ff51e820",
       "files": [
+        "Android.bp",
         "os_pickup_qssi.bp"
       ]
     },

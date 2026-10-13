@@ -97,7 +97,8 @@ def check_namespace_setup(rom):
         if not os.path.lexists(destination):
             destination.symlink_to(os.path.relpath(source, destination.parent))
     count = check_namespaces(rom, upstream)
-    print("PASS: " + str(count) + " chipset namespace exports from pinned PixelOS/common sources.")
+    print("PASS: " + str(count) + " chipset namespace exports and globally visible shared audio defaults")
+    print("from pinned PixelOS/common sources.")
 
 
 def check_plugin_blueprints(rom):

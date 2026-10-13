@@ -16,6 +16,8 @@ FILES = (
     ("hardware/qcom-caf/sm8250/media", "mm-core/Android.bp"),
     ("hardware/qcom-caf/sm8150/display", "Android.bp"),
     ("hardware/qcom-caf/msm8953/display", "Android.bp"),
+    ("hardware/qcom-caf/common", "Android.bp"),
+    ("hardware/qcom-caf/sm8450/audio/graphservices", "gsl/Android.bp"),
     ("vendor/hecker/floral/faceid", "Android.bp.in"),
     ("vendor/hecker/floral/motionsense", "Android.bp.in"),
 )
@@ -91,8 +93,8 @@ def recover(rom, backup_parent=None):
     for project, relative in FILES:
         git(rom / project, "restore", "--source=HEAD", "--staged", "--worktree",
             "--ignore-skip-worktree-bits", "--", relative)
-    print("Restored four CAF files and both plugin templates to their current HEADs.")
-    print("Next: sync both updated plugins and locally sync hardware/qcom-caf/common.")
+    print("Restored six CAF files and both plugin templates to their current HEADs.")
+    print("Next: locally sync hardware/qcom-caf/common; sync plugins if their pins changed.")
     print("Plugin preparation will regenerate Android.bp from the updated templates.")
     return backup
 
