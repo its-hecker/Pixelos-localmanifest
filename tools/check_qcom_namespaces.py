@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+"""Check the Qualcomm chipset namespaces exported by the active Repo manifest."""
+
+import argparse
+from pathlib import Path
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+COMMON = "hardware/qcom-caf/common"
+SOURCE = "os_pickup_qssi.bp"
+REPAIR = ("python3 .repo/local_manifests/tools/restore_checkout.py "
+          "--project " + COMMON + " --restore\n"
+          "repo sync -l -j1 --fail-fast " + COMMON)
+
+
+def namespace_links(manifest):
+    projects = [p for p in manifest.findall("project") if p.get("path") == COMMON]
+    if len(projects) != 1:
+        raise ValueError("The active manifest must select exactly one " + COMMON + " project")
+    links = []
+    for node in projects[0].findall("linkfile"):
+        if node.get("src") != SOURCE:
+            continue
+        destination = Path(node.get("dest", ""))
+        if (destination.is_absolute() or ".." in destination.parts or
+                destination.parts[:2] != ("hardware", "qcom-caf") or
+                destination.name != "Android.bp"):
+            raise ValueError("Invalid Qualcomm namespace destination: " + str(destination))
+        links.append(destination)
+    if not links or len(set(links)) != len(links):
+        raise ValueError("Missing or duplicate Qualcomm namespace exports in the active manifest")
+    return links
+
+
+def check(rom, manifest):
+    rom = rom.resolve()
+    links = namespace_links(manifest)
+    source = rom / COMMON / SOURCE
+    if not source.resolve().is_relative_to(rom) or not source.is_file():
+        raise ValueError("Missing Qualcomm namespace source: " + str(source) + "\nRun:\n" + REPAIR)
+    content = source.read_bytes()
+    if not re.search(rb"(?m)^\s*soong_namespace\s*\{", content):
+        raise ValueError("Qualcomm namespace source has no soong_namespace declaration")
+    invalid = []
+    for relative in links:
+        destination = rom / relative
+        if (not destination.resolve().is_relative_to(rom) or not destination.is_file() or
+                destination.read_bytes() != content):
+            invalid.append(str(relative))
+    if invalid:
+        raise ValueError("Missing or mismatched Qualcomm chipset namespace exports:\n  " +
+                         "\n  ".join(invalid) + "\nRun:\n" + REPAIR)
+    return len(links)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--rom-root", type=Path, default=Path.cwd())
+    parser.add_argument("--manifest", type=Path, help="Check an exported manifest XML instead of invoking Repo")
+    args = parser.parse_args()
+    try:
+        rom = args.rom_root.resolve()
+        if args.manifest:
+            manifest = ET.parse(args.manifest).getroot()
+        else:
+            result = subprocess.run(["repo", "manifest", "-o", "-"], cwd=rom,
+                                    stdout=subprocess.PIPE, text=True, check=True)
+            manifest = ET.fromstring(result.stdout)
+        count = check(rom, manifest)
+        print("Qualcomm chipset namespace exports: PASS (" + str(count) + ")")
+        return 0
+    except (OSError, ValueError, ET.ParseError, subprocess.CalledProcessError) as error:
+        print("Checkout namespace check:", error, file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

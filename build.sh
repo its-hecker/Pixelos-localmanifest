@@ -22,6 +22,7 @@ if [[ ! -f trusty/vendor/google/aosp/lk_inc.mk || ! -f lk_inc.mk ]] || \
     exit 1
 fi
 floral_setup_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+python3 "$floral_setup_dir/tools/check_qcom_namespaces.py"
 git -C vendor/google/coral lfs pull
 python3 "$floral_setup_dir/tools/prepare.py" "$@"
 python3 "$floral_setup_dir/tools/validate.py" --rom-root "$PWD"

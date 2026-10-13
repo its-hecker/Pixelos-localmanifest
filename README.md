@@ -69,7 +69,8 @@ restore the missing files across the source checkout:
 ```bash
 git -C .repo/local_manifests pull --ff-only
 python3 .repo/local_manifests/tools/restore_checkout.py --restore
-repo sync -l -j1 --fail-fast build/make trusty/vendor/google/aosp
+repo sync -l -j1 --fail-fast \
+    build/make trusty/vendor/google/aosp hardware/qcom-caf/common
 bash .repo/local_manifests/build.sh
 ```
 
@@ -79,7 +80,9 @@ files in initialized submodules. Existing files, local edits, staged deletions,
 plugin caches and build outputs are preserved. Git's configured checkout filters,
 including Git LFS, still apply. Running without `--restore` only reports missing
 files; repeated `--project PATH` options limit recovery to selected projects.
-The local sync above recreates the build links and Trusty root copy afterward.
+The local sync above recreates the build links, Trusty root copy and Qualcomm
+chipset namespace links afterward. These Repo exports live outside their source
+projects and are not restored by Git's indexed-file recovery.
 Sparse rules are left unchanged; if another sync excludes files again, rerun
 recovery after that sync. Missing projects still need `repo sync` first.
 
@@ -108,6 +111,27 @@ insufficient when the copy step reported an error. If recovery still fails,
 inspect both paths with `ls -ld trusty/vendor/google/aosp/lk_inc.mk lk_inc.mk`;
 missing source files and destination type/permission problems need different
 repairs.
+
+### Repair Qualcomm namespace links
+
+Errors such as `libgralloc.qti` or `color_sampling_test` being defined in several
+CAF chipset trees can occur when Repo's namespace links are absent. PixelOS
+exports `hardware/qcom-caf/common/os_pickup_qssi.bp` as each chipset's root
+`Android.bp`, giving those otherwise duplicate modules separate namespaces.
+Restore the common source and recreate its exports:
+
+```bash
+cd ~/pixelos &&
+git -C .repo/local_manifests pull --ff-only &&
+python3 .repo/local_manifests/tools/restore_checkout.py \
+    --project hardware/qcom-caf/common --restore &&
+repo sync -l -j1 --fail-fast hardware/qcom-caf/common &&
+PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
+```
+
+The build helper checks every Qualcomm namespace export selected by the active
+manifest before plugin preparation or compilation. It reports missing or
+mismatched files without changing existing files. Keep ServerHive's RBE enabled.
 
 ### Pick up the shared kernel fixes
 
@@ -154,7 +178,7 @@ test "$(git -C kernel/google/msm-4.14/KernelSU rev-parse HEAD)" = \
     "ce120bd9f4ed262302d4776589a940412949d365" &&
 python3 .repo/local_manifests/tools/restore_checkout.py --restore &&
 repo sync -l -j1 --fail-fast \
-    build/make trusty/vendor/google/aosp kernel/google/msm-4.14 &&
+    build/make trusty/vendor/google/aosp hardware/qcom-caf/common kernel/google/msm-4.14 &&
 cmp -- trusty/vendor/google/aosp/lk_inc.mk lk_inc.mk &&
 echo "Trusty copy verified" &&
 rm -rf -- out/target/product/coral/obj/KERNEL_OBJ &&
@@ -231,7 +255,8 @@ patch compatibility, native ABI/crypto/calibration bindings, APK interfaces,
 setup idempotence, allowlist preservation, hardware sensor configuration and
 stale-input rejection. It also parses both prepared product and board Make
 entries before Android defines its `my-dir` helper, as in early product
-configuration. It uses small checkouts; it **does not compile Android**.
+configuration, and verifies Qualcomm namespace exports against pinned upstream
+manifest/common sources. It uses small checkouts; it **does not compile Android**.
 Initial upstream inputs used by CI are recorded in `source-revisions.json`.
 
 Full ROM compilation, SELinux/VINTF build checks and a PixelOS phone test remain

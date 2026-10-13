@@ -5,6 +5,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,6 +15,7 @@ import xml.etree.ElementTree as ET
 
 from prepare import prepare
 from validate import ROOT, manifest, require
+from check_qcom_namespaces import check as check_namespaces, namespace_links
 
 
 def git(*args, cwd=None):
@@ -84,6 +86,19 @@ def check_product_make(rom):
     print("PASS: real prepared product and board entries parse before Android's my-dir helper.")
 
 
+def check_namespace_setup(rom):
+    reference = rom / "out/floral-manifest-reference/snippets/lineage.xml"
+    upstream = ET.parse(reference).getroot()
+    source = rom / "hardware/qcom-caf/common/os_pickup_qssi.bp"
+    for relative in namespace_links(upstream):
+        destination = rom / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if not os.path.lexists(destination):
+            destination.symlink_to(os.path.relpath(source, destination.parent))
+    count = check_namespaces(rom, upstream)
+    print("PASS: " + str(count) + " chipset namespace exports from pinned PixelOS/common sources.")
+
+
 def test(rom, fetch=True):
     manifest()
     lock = json.loads((ROOT / "source-revisions.json").read_text())
@@ -95,9 +110,12 @@ def test(rom, fetch=True):
             sparse = ["Android.bp", "proprietary/vendor/firmware/faceauth_config.yaml",
                       "proprietary/vendor/firmware/faceauth_v1.mdt"] if path == "vendor/google/coral" else None
             checkout(rom, path, project.get("name"), project.get("revision"), sparse)
-        for path in ["vendor/custom", "vendor/lineage", "frameworks/base"]:
-            item = lock["pixelos_inputs"][path]
+        for path, item in lock["pixelos_inputs"].items():
             checkout(rom, path, item["repository"], item["revision"], item["files"])
+        reference = lock["pixelos_manifest"]
+        checkout(rom, "out/floral-manifest-reference", reference["repository"],
+                 reference["revision"], ["snippets/lineage.xml"])
+    check_namespace_setup(rom)
     references = rom / "out/floral-framework-reference"
     references.mkdir(parents=True, exist_ok=True)
     java_root = rom / "frameworks/base/services/core/java/com/android/server/biometrics/sensors/face"

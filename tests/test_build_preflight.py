@@ -6,6 +6,9 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
+
+from namespace_fixture import stage
 
 
 BUILD = Path(__file__).resolve().parents[1] / "build.sh"
@@ -32,6 +35,11 @@ class BuildPreflightTests(unittest.TestCase):
         git = binary / "git"
         git.write_text("#!/bin/sh\necho REACHED_LFS_BOUNDARY >&2\nexit 47\n")
         git.chmod(0o755)
+        self.namespace_source, manifest = stage(self.rom)
+        repo = binary / "repo"
+        repo.write_text("#!/bin/sh\ncat <<'FLORAL_MANIFEST'\n" +
+                        ET.tostring(manifest, encoding="unicode") + "\nFLORAL_MANIFEST\n")
+        repo.chmod(0o755)
         self.environment = os.environ.copy()
         self.environment["PATH"] = str(binary) + ":" + self.environment["PATH"]
 
@@ -72,6 +80,22 @@ class BuildPreflightTests(unittest.TestCase):
         self.assertEqual(result.returncode, 47)
         self.assertIn("REACHED_LFS_BOUNDARY", result.stderr)
         self.assertNotIn("Missing or mismatched Trusty", result.stderr)
+
+    def test_missing_chipset_namespace_stops_before_preparation(self):
+        (self.rom / "hardware/qcom-caf/sm8250/Android.bp").unlink()
+        result = self.rejected("Missing or mismatched Qualcomm chipset namespace exports")
+        self.assertIn("repo sync -l -j1 --fail-fast hardware/qcom-caf/common", result.stderr)
+
+    def test_missing_namespace_source_stops_before_preparation(self):
+        self.namespace_source.unlink()
+        self.rejected("Missing Qualcomm namespace source")
+
+    def test_different_namespace_file_is_preserved_and_rejected(self):
+        path = self.rom / "hardware/qcom-caf/sm8650/Android.bp"
+        path.unlink()
+        path.write_text("local namespace\n")
+        self.rejected("Missing or mismatched Qualcomm chipset namespace exports")
+        self.assertEqual(path.read_text(), "local namespace\n")
 
 
 if __name__ == "__main__":

@@ -18,6 +18,14 @@
     }
   },
   "pixelos_inputs": {
+    "hardware/qcom-caf/common": {
+      "repository": "LineageOS/android_hardware_qcom-caf_common",
+      "branch": "lineage-24.0",
+      "revision": "5e84e6f8fc47530881fa8d95cf533617ff51e820",
+      "files": [
+        "os_pickup_qssi.bp"
+      ]
+    },
     "vendor/custom": {
       "repository": "PixelOS-AOSP/android_vendor_custom",
       "branch": "seventeen",
