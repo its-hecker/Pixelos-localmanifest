@@ -1,0 +1,21 @@
+name: PixelOS Floral source integration
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate manifest and exercise both standalone plugins against PixelOS
+        run: |
+          python3 tools/validate.py
+          python3 tools/integration_smoke.py

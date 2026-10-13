@@ -1,0 +1,53 @@
+{
+  "checked_on": "2026-10-13",
+  "pixelos_manifest": {
+    "repository": "PixelOS-AOSP/android_manifest",
+    "branch": "seventeen",
+    "revision": "c16cfd0c95c5c3d7f5f2ef85b5b3140787db2035"
+  },
+  "base_snapshots": {
+    "device": {
+      "repository": "Nahida-Prjkt/android_device_google_coral",
+      "branch": "lineage-24.0",
+      "revision": "6fd94b97c7af048b064859c6d6f282a8646eead2"
+    },
+    "vendor": {
+      "repository": "Nahida-Prjkt/proprietary_vendor_google_coral",
+      "branch": "lineage-24.0",
+      "revision": "c957fead4960a897ff75132f3acc5ec64d492ada"
+    }
+  },
+  "pixelos_inputs": {
+    "vendor/custom": {
+      "repository": "PixelOS-AOSP/android_vendor_custom",
+      "branch": "seventeen",
+      "revision": "e389a1e2caec0cd1e8dc5a5459b88cc2bad38897",
+      "files": [
+        "config/",
+        "overlay/common/",
+        "overlay/rro_packages/FrameworkOverlayCustom/"
+      ]
+    },
+    "vendor/lineage": {
+      "repository": "PixelOS-AOSP/android_vendor_lineage",
+      "branch": "seventeen",
+      "revision": "0d2ff0b8055eb745d36dfef3600a73f5185a4fff",
+      "files": [
+        "overlay/common/"
+      ]
+    },
+    "frameworks/base": {
+      "repository": "PixelOS-AOSP/android_frameworks_base",
+      "branch": "seventeen",
+      "revision": "81b912ee97d9d4673ed4696bde30f14841b26c99",
+      "files": [
+        "core/res/res/values/config.xml",
+        "packages/SystemUI/res/values/config.xml",
+        "services/core/java/com/android/server/biometrics/sensors/face/hidl/HidlToAidlSessionAdapter.java",
+        "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceEnrollClient.java",
+        "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java",
+        "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlConversionUtils.java"
+      ]
+    }
+  }
+}
