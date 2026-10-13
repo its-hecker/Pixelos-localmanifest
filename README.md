@@ -229,7 +229,9 @@ repo manifest -r -o out/pixelos-coral-source-manifest.xml
 CI checks the real PixelOS source and both standalone plugin packages: framework
 patch compatibility, native ABI/crypto/calibration bindings, APK interfaces,
 setup idempotence, allowlist preservation, hardware sensor configuration and
-stale-input rejection. It uses small checkouts; it **does not compile Android**.
+stale-input rejection. It also parses both prepared product and board Make
+entries before Android defines its `my-dir` helper, as in early product
+configuration. It uses small checkouts; it **does not compile Android**.
 Initial upstream inputs used by CI are recorded in `source-revisions.json`.
 
 Full ROM compilation, SELinux/VINTF build checks and a PixelOS phone test remain

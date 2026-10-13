@@ -43,6 +43,47 @@ def profiles(rom):
     return result
 
 
+def check_product_make(rom):
+    # Android's pre-product configuration pass has not defined my-dir yet.
+    # Parse the real prepared entries with their real readiness verifiers.
+    motion = "vendor/hecker/floral/motionsense"
+    face = "vendor/hecker/floral/faceid"
+    source = "\n".join([
+        "TARGET_COPY_OUT_VENDOR := vendor",
+        "PRODUCT_PACKAGES := KeepMe android.hardware.biometrics.face@1.0-service.google OsloFeedback",
+        "PRODUCT_COPY_FILES := keep:vendor/etc/keep",
+        "include " + motion + "/motionsense.mk",
+        "include " + face + "/faceid.mk",
+        "include " + motion + "/BoardConfigMotionSense.mk",
+        "include " + face + "/BoardConfigFaceID.mk",
+        "$(info MAKE_NAMESPACES=$(PRODUCT_SOONG_NAMESPACES))",
+        "$(info MAKE_PACKAGES=$(PRODUCT_PACKAGES))",
+        "$(info MAKE_COPIES=$(PRODUCT_COPY_FILES))",
+        "$(info MAKE_POLICY=$(BOARD_VENDOR_SEPOLICY_DIRS))",
+        ".PHONY: all", "all:", "\t@:",
+    ]) + "\n"
+    result = subprocess.run(["make", "--no-print-directory", "-f", "-", "all"],
+                            cwd=rom, input=source, text=True, capture_output=True)
+    require(result.returncode == 0, "Plugin product/board Make parsing failed:\n" +
+            result.stdout + result.stderr)
+    values = dict(line.split("=", 1) for line in result.stdout.splitlines()
+                  if line.startswith("MAKE_"))
+    namespaces = values.get("MAKE_NAMESPACES", "").split()
+    packages = values.get("MAKE_PACKAGES", "").split()
+    copies = values.get("MAKE_COPIES", "").split()
+    require(motion in namespaces and face in namespaces, "Plugin Soong namespaces are missing")
+    require({"KeepMe", "FloralOsloFeedback", "FloralFaceIDHal", "FloralFaceIDManifest"} <=
+            set(packages), "Prepared plugin packages are missing")
+    require(not {"android.hardware.biometrics.face@1.0-service.google", "OsloFeedback"} &
+            set(packages), "Replaced stock plugin packages were retained")
+    require("keep:vendor/etc/keep" in copies and face +
+            "/configs/android.hardware.biometrics.face.xml:vendor/etc/permissions/android.hardware.biometrics.face.xml"
+            in copies, "Plugin permission copy or unrelated product copy was lost")
+    require(face + "/sepolicy/vendor" in values.get("MAKE_POLICY", "").split(),
+            "Face ID vendor policy is missing")
+    print("PASS: real prepared product and board entries parse before Android's my-dir helper.")
+
+
 def test(rom, fetch=True):
     manifest()
     lock = json.loads((ROOT / "source-revisions.json").read_text())
@@ -74,6 +115,7 @@ def test(rom, fetch=True):
     first = profiles(rom)
     prepare(rom, offline=True)
     require(profiles(rom) == first, "Repeated setup changed generated outputs")
+    check_product_make(rom)
     motion = rom / "vendor/hecker/floral/motionsense"
     face = rom / "vendor/hecker/floral/faceid"
     allowlist = ET.parse(motion / "overlay/res/values/config.xml").getroot().find("string-array")
