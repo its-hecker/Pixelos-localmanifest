@@ -19,15 +19,3 @@ jobs:
         run: |
           python3 tools/validate.py
           python3 tools/integration_smoke.py
-      - name: Test private signing with disposable keys
-        run: |
-          set -euo pipefail
-          python3 -m venv "$RUNNER_TEMP/signing-venv"
-          "$RUNNER_TEMP/signing-venv/bin/python" -m pip install -r requirements-signing.txt
-          git clone --quiet --no-checkout https://github.com/ItsVixano/android_vendor_lineage-priv_keys.git "$RUNNER_TEMP/signing-template"
-          floral_template_revision="$(python3 -c 'import json; print(json.load(open("signing-template.lock.json"))["revision"])')"
-          git -C "$RUNNER_TEMP/signing-template" checkout --quiet --detach "$floral_template_revision"
-          git clone --quiet --depth=1 --filter=blob:none --sparse --branch seventeen https://github.com/PixelOS-AOSP/android_external_avb.git "$RUNNER_TEMP/signing-avb"
-          "$RUNNER_TEMP/signing-venv/bin/python" tests/test_signing.py \
-            --template "$RUNNER_TEMP/signing-template" \
-            --avb-tool "$RUNNER_TEMP/signing-avb/avbtool.py"

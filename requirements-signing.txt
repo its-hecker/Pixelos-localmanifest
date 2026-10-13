@@ -1,3 +1,0 @@
-# Versions validated with the pinned PixelOS-recommended signing template.
-pyOpenSSL==26.4.0
-cryptography==50.0.2
