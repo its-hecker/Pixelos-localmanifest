@@ -54,6 +54,29 @@ already exists, copy `floral.xml` and the setup scripts into it after reviewing
 other Floral project entries. Do not select two projects at the same checkout
 path. The manifest's removals replace those exact paths only.
 
+### Recover missing checkout files
+
+If sync reports success but tracked files such as `build/make/envsetup.sh`,
+`device/google/coral/custom_coral.mk` or `BoardConfig-common.mk` are absent,
+restore the missing files across the source checkout:
+
+```bash
+git -C .repo/local_manifests pull --ff-only
+python3 .repo/local_manifests/tools/restore_checkout.py --restore
+repo sync -l -j1 --fail-fast build/make trusty/vendor/google/aosp
+bash .repo/local_manifests/build.sh
+```
+
+The helper enumerates the active Repo projects and restores only missing files
+from each Git index, including files excluded by skip-worktree/sparse rules and
+files in initialized submodules. Existing files, local edits, staged deletions,
+plugin caches and build outputs are preserved. Git's configured checkout filters,
+including Git LFS, still apply. Running without `--restore` only reports missing
+files; repeated `--project PATH` options limit recovery to selected projects.
+The local sync above recreates the build links and Trusty root copy afterward.
+Sparse rules are left unchanged; if another sync excludes files again, rerun
+recovery after that sync. Missing projects still need `repo sync` first.
+
 ## Prepare and build
 
 Builds use PixelOS's default signing configuration; no private-key setup is

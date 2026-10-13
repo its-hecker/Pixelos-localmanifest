@@ -3,8 +3,14 @@
 # Run from the Android source root, after repo sync.
 # Android's envsetup does not support nounset, so do not enable set -u here.
 set -eo pipefail
-if [[ ! -f build/envsetup.sh || ! -d .repo ]]; then
-    echo "Run this script from a synced PixelOS Android source root." >&2
+if [[ ! -d .repo ]]; then
+    echo "Run this script from the PixelOS Android source root containing .repo." >&2
+    exit 1
+fi
+if [[ ! -f build/envsetup.sh ]]; then
+    echo "Missing build/envsetup.sh in this Android checkout." >&2
+    echo "Run: python3 .repo/local_manifests/tools/restore_checkout.py --restore" >&2
+    echo "Then: repo sync -l -j1 --fail-fast build/make" >&2
     exit 1
 fi
 floral_setup_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

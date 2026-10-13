@@ -56,9 +56,11 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
         "frameworks/base/core/res/res/values/config.xml",
         motion + "/tools/prepare.py", face + "/tools/prepare.py",
     ]
-    for relative in required:
-        if not (rom / relative).is_file():
-            raise ValueError("Missing source input: " + relative + "; finish repo sync first")
+    missing = [relative for relative in required if not (rom / relative).is_file()]
+    if missing:
+        raise ValueError("Missing source inputs:\n  " + "\n  ".join(missing)
+                         + "\nRun repo sync, then if tracked files are still absent run:"
+                         + "\n  python3 .repo/local_manifests/tools/restore_checkout.py --restore")
     product = (rom / "device/google/coral/custom_coral.mk").read_text()
     if "TARGET_FACE_UNLOCK_SUPPORTED := false" not in product:
         raise ValueError("Disable PixelOS ParanoidSense before using the IR Face HAL")
