@@ -39,9 +39,11 @@ GoogleParts has no second Motion Sense page.
 Use an Android build host with the normal AOSP build dependencies, Repo, Git LFS,
 Python 3 and sufficient RAM/storage for an Android source build.
 
-From an empty build directory:
+Create and enter a separate PixelOS build directory:
 
 ```bash
+mkdir -p ~/pixelos
+cd ~/pixelos
 repo init -u https://github.com/PixelOS-AOSP/android_manifest.git -b seventeen --git-lfs
 git clone https://github.com/its-hecker/Pixelos-localmanifest.git .repo/local_manifests
 repo sync -c -j8
