@@ -89,6 +89,8 @@ PixelOS's upstream manifest copies `trusty/vendor/google/aosp/lk_inc.mk` to
 `lk_inc.mk` at the Android checkout root. This is a Repo checkout/copy step;
 the separate Coral device/vendor repositories do not supply that file.
 If Repo prints `Cannot copy file`, restore the source and rerun its local copy:
+If sync instead reports local edits inside KernelSU, complete the shared-kernel
+migration below before retrying this copy step.
 
 ```bash
 cd ~/pixelos &&
@@ -111,11 +113,33 @@ repairs.
 
 The manifest pins an exact kernel commit, so updating the shared kernel's branch
 does not advance a PixelOS checkout until this manifest is updated and synced.
-Before replacing an old pin, save its known generated compatibility edits:
+KernelSU is a separate Git repository: changes inside it are not included in a
+parent-kernel diff or stash. Repo may stop project cleanup with
+`KernelSU: Cannot remove project: uncommitted changes are present` even while
+syncing other paths.
+
+Before syncing, archive KernelSU's files outside the source tree, record its
+tracked/staged changes, and stash its tracked and untracked edits. Save the
+parent kernel's known generated compatibility edits separately. Then sync the
+kernel first, restore remaining missing checkout files, and verify the Trusty
+copy with the kernel included in the local sync:
 
 ```bash
 cd ~/pixelos &&
 pixel_kernel_backup="$(mktemp -d "$HOME/pixelos-kernel-update-XXXXXXXX")" &&
+pixel_ksu_dir="kernel/google/msm-4.14/KernelSU" &&
+if [[ -e "$pixel_ksu_dir/.git" ]]; then
+    git -C "$pixel_ksu_dir" rev-parse HEAD \
+        > "$pixel_kernel_backup/KernelSU-head.txt" &&
+    git -C "$pixel_ksu_dir" diff --binary HEAD \
+        > "$pixel_kernel_backup/KernelSU-tracked.patch" &&
+    git -C "$pixel_ksu_dir" diff --binary --cached \
+        > "$pixel_kernel_backup/KernelSU-staged.patch" &&
+    tar -czf "$pixel_kernel_backup/KernelSU-files.tar.gz" \
+        --exclude=.git -C "$pixel_ksu_dir" . &&
+    git -C "$pixel_ksu_dir" stash push -u \
+        -m "PixelOS kernel update: $pixel_kernel_backup"
+fi &&
 git -C kernel/google/msm-4.14 diff --binary HEAD -- \
     fs/namespace.c fs/internal.h include/linux/seccomp.h \
     > "$pixel_kernel_backup/ksu-compatibility.patch" &&
@@ -126,13 +150,23 @@ echo "Previous kernel edits saved in: $pixel_kernel_backup" &&
 git -C .repo/local_manifests pull --ff-only &&
 repo sync -c -j1 --fail-fast kernel/google/msm-4.14 &&
 git -C kernel/google/msm-4.14 submodule update --init --recursive &&
+test "$(git -C kernel/google/msm-4.14/KernelSU rev-parse HEAD)" = \
+    "ce120bd9f4ed262302d4776589a940412949d365" &&
+python3 .repo/local_manifests/tools/restore_checkout.py --restore &&
+repo sync -l -j1 --fail-fast \
+    build/make trusty/vendor/google/aosp kernel/google/msm-4.14 &&
+cmp -- trusty/vendor/google/aosp/lk_inc.mk lk_inc.mk &&
+echo "Trusty copy verified" &&
 rm -rf -- out/target/product/coral/obj/KERNEL_OBJ &&
 PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
 ```
 
-Run recovery and sync only after any current build has finished. This replaces
-the backed-up local compatibility edits with the committed backports. Keep the
-provider's RBE environment and host integration patches when using ServerHive.
+Run recovery and sync only after any current build has finished. Keep the saved
+archive and patches for review; the build uses the committed driver and
+compatibility backports. The archive also retains untracked and ignored files
+if Repo cleans up the old submodule checkout. Source recovery writes only
+missing indexed files and preserves existing source edits and build outputs.
+Keep the provider's RBE environment and host integration patches on ServerHive.
 
 ## Prepare and build
 
