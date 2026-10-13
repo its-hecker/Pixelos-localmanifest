@@ -10,7 +10,7 @@ Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
 | --- | --- | --- |
 | `device/google/coral` | [PixelOS device copy](https://github.com/its-hecker/pixelos_android_device_google_coral) | `main` |
 | `vendor/google/coral` | [PixelOS vendor copy](https://github.com/its-hecker/pixelos_proprietary_vendor_google_coral) | `main` |
-| `kernel/google/msm-4.14` | [CNB kernel](https://github.com/its-hecker/infinity_cnb_kernel_google_msm-4.14) | pinned `e8d36b72`, from `cnb-Latest-stable` |
+| `kernel/google/msm-4.14` | [CNB kernel](https://github.com/its-hecker/infinity_cnb_kernel_google_msm-4.14) | pinned `aaaa03e4`, from `cnb-Latest-stable` |
 | `packages/apps/ElmyraService` | [ElmyraService](https://github.com/LineageOS/android_packages_apps_ElmyraService) | pinned `baab2beb`, from `lineage-24.0` |
 | `vendor/lunaris/dolby` | [Lunaris Dolby](https://github.com/its-hecker/vendor_lunaris_dolby) | pinned `cf47b515`, from `main` |
 | `vendor/hecker/floral/motionsense` | [Motion Sense plugin](https://github.com/its-hecker/floral-motionsense-plugin) | pinned `75c8e5ff`, from `main` |
@@ -19,6 +19,12 @@ Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
 The old kernel branch `cnb` was renamed to `cnb-Latest-stable`. This setup uses
 that same CNB source, including its pinned KernelSU submodule (`sync-s="true"`).
 The optimized Wireshark kernel is not selected.
+
+This kernel pin includes the committed `path_umount`/seccomp compatibility
+backports and the Coral KernelSU-Next UAPI 5 driver for the official v3.4.1
+manager. The backports exist before parallel compilation begins; older pins
+could let KernelSU patch `namespace.c` after its object had already compiled.
+The driver also records its version for shallow submodule checkouts.
 
 Device/vendor snapshots come from Nahida's `lineage-24.0` trees. Each copy records
 its upstream commit in `UPSTREAM.json`. General HardwareInfo/SELinux, HWUI property,
@@ -76,6 +82,57 @@ files; repeated `--project PATH` options limit recovery to selected projects.
 The local sync above recreates the build links and Trusty root copy afterward.
 Sparse rules are left unchanged; if another sync excludes files again, rerun
 recovery after that sync. Missing projects still need `repo sync` first.
+
+### Repair the Trusty root copy
+
+PixelOS's upstream manifest copies `trusty/vendor/google/aosp/lk_inc.mk` to
+`lk_inc.mk` at the Android checkout root. This is a Repo checkout/copy step;
+the separate Coral device/vendor repositories do not supply that file.
+If Repo prints `Cannot copy file`, restore the source and rerun its local copy:
+
+```bash
+cd ~/pixelos &&
+git -C .repo/local_manifests pull --ff-only &&
+python3 .repo/local_manifests/tools/restore_checkout.py \
+    --project build/make --project trusty/vendor/google/aosp --restore &&
+repo sync -l -j1 --fail-fast build/make trusty/vendor/google/aosp &&
+cmp -- trusty/vendor/google/aosp/lk_inc.mk lk_inc.mk &&
+echo "Trusty copy verified"
+```
+
+`build.sh` verifies both Android environment markers and the Trusty source/root
+copy before preparing plugins or compiling. A successful Repo summary alone is
+insufficient when the copy step reported an error. If recovery still fails,
+inspect both paths with `ls -ld trusty/vendor/google/aosp/lk_inc.mk lk_inc.mk`;
+missing source files and destination type/permission problems need different
+repairs.
+
+### Pick up the shared kernel fixes
+
+The manifest pins an exact kernel commit, so updating the shared kernel's branch
+does not advance a PixelOS checkout until this manifest is updated and synced.
+Before replacing an old pin, save its known generated compatibility edits:
+
+```bash
+cd ~/pixelos &&
+pixel_kernel_backup="$(mktemp -d "$HOME/pixelos-kernel-update-XXXXXXXX")" &&
+git -C kernel/google/msm-4.14 diff --binary HEAD -- \
+    fs/namespace.c fs/internal.h include/linux/seccomp.h \
+    > "$pixel_kernel_backup/ksu-compatibility.patch" &&
+git -C kernel/google/msm-4.14 restore \
+    --source=HEAD --staged --worktree --ignore-skip-worktree-bits -- \
+    fs/namespace.c fs/internal.h include/linux/seccomp.h &&
+echo "Previous kernel edits saved in: $pixel_kernel_backup" &&
+git -C .repo/local_manifests pull --ff-only &&
+repo sync -c -j1 --fail-fast kernel/google/msm-4.14 &&
+git -C kernel/google/msm-4.14 submodule update --init --recursive &&
+rm -rf -- out/target/product/coral/obj/KERNEL_OBJ &&
+PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
+```
+
+Run recovery and sync only after any current build has finished. This replaces
+the backed-up local compatibility edits with the committed backports. Keep the
+provider's RBE environment and host integration patches when using ServerHive.
 
 ## Prepare and build
 

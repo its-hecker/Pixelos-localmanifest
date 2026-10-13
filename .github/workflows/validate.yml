@@ -15,8 +15,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Verify checkout recovery preserves existing files and local edits
-        run: python3 -m unittest discover -s tests -p 'test_restore_checkout.py'
+      - name: Verify checkout recovery and build preflight
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Validate manifest and exercise both standalone plugins against PixelOS
         run: |
           python3 tools/validate.py

@@ -19,7 +19,7 @@
   <!-- cnb was renamed to cnb-Latest-stable. Preserve its KernelSU submodule. -->
   <project name="its-hecker/infinity_cnb_kernel_google_msm-4.14"
            path="kernel/google/msm-4.14" remote="floral-github"
-           revision="e8d36b72ab353f841892cd64b7ad20491f5479d5"
+           revision="aaaa03e40200825133d21402cad8f2a86939a778"
            upstream="refs/heads/cnb-Latest-stable" dest-branch="cnb-Latest-stable"
            sync-s="true" />
 
