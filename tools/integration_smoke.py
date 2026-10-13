@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 from prepare import prepare
 from validate import ROOT, manifest, require
 from check_qcom_namespaces import check as check_namespaces, namespace_links
+from recover_caf_namespaces import inventory as caf_inventory, apply as recover_caf, namespace_blocks
 
 
 def git(*args, cwd=None):
@@ -116,6 +117,37 @@ def check_plugin_blueprints(rom):
     print("PASS: both generated plugin namespaces precede their license modules.")
 
 
+def check_caf_scope_recovery(rom):
+    relative = "hardware/qcom-caf/sm8750/audio/graphservices"
+    project = rom / relative
+    caf_manifest = ET.Element("manifest")
+    ET.SubElement(caf_manifest, "project", path=relative)
+    expected = {}
+    for filename in ("gsl/Android.bp", "gpr/Android.bp"):
+        path = project / filename
+        original = path.read_bytes()
+        require(not namespace_blocks(original), "Pinned graphservice has an unexpected upstream namespace")
+        kept = original + b"\n// smoke: unrelated local edit retained\n"
+        path.write_bytes(b"soong_namespace {}\n" + kept)
+        expected[filename] = kept
+    git("add", "--", "gsl/Android.bp", cwd=project)
+    path = project / "gsl/Android.bp"
+    path.write_bytes(path.read_bytes() + b"// smoke: unrelated working edit retained\n")
+    expected["gsl/Android.bp"] += b"// smoke: unrelated working edit retained\n"
+    actions = caf_inventory(rom, caf_manifest)
+    require(len(actions) == 2, "Both real graphservice scope additions must be detected")
+    with tempfile.TemporaryDirectory(prefix="caf-scope-backup-") as folder:
+        recover_caf(rom, actions, Path(folder))
+        for filename, content in expected.items():
+            require((project / filename).read_bytes() == content,
+                    "CAF recovery changed a module definition or an unrelated local edit")
+        index = subprocess.check_output(["git", "-C", str(project), "show", ":gsl/Android.bp"])
+        require(index + b"// smoke: unrelated working edit retained\n" == expected["gsl/Android.bp"],
+                "CAF recovery did not preserve unrelated staged changes")
+        require(not caf_inventory(rom, caf_manifest), "CAF scope recovery is not idempotent")
+    print("PASS: real pinned SM8750 graphservice namespaces recover without losing module or index edits.")
+
+
 def test(rom, fetch=True):
     manifest()
     lock = json.loads((ROOT / "source-revisions.json").read_text())
@@ -133,6 +165,7 @@ def test(rom, fetch=True):
         checkout(rom, "out/floral-manifest-reference", reference["repository"],
                  reference["revision"], ["snippets/lineage.xml"])
     check_namespace_setup(rom)
+    check_caf_scope_recovery(rom)
     references = rom / "out/floral-framework-reference"
     references.mkdir(parents=True, exist_ok=True)
     java_root = rom / "frameworks/base/services/core/java/com/android/server/biometrics/sensors/face"

@@ -18,6 +18,15 @@
     }
   },
   "pixelos_inputs": {
+    "hardware/qcom-caf/sm8750/audio/graphservices": {
+      "repository": "LineageOS/android_vendor_qcom_opensource_audioreach-graphservices",
+      "branch": "lineage-24.0-caf-sm8750",
+      "revision": "62591b81ddb14cb1ddecf2a8e7162f2082456793",
+      "files": [
+        "gsl/Android.bp",
+        "gpr/Android.bp"
+      ]
+    },
     "hardware/qcom-caf/common": {
       "repository": "LineageOS/android_hardware_qcom-caf_common",
       "branch": "lineage-24.0",

@@ -193,6 +193,34 @@ PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
 Keep the new printed backup folder. The helper restores only the listed files;
 it does not reset CAF repositories, discard other files, or alter RBE settings.
 
+### Recover added namespaces across CAF projects
+
+An extra namespace in a graphservice child such as `gsl` or `ar_util` hides sibling
+libraries (`libar-gpr`, `libar-acdb`, `liblx-ar_util`, `liblx-osal`) that the
+upstream chipset scope normally resolves. If namespace workarounds were added in
+several CAF trees, discover and recover all eligible additions together:
+
+```bash
+cd ~/pixelos &&
+git -C .repo/local_manifests pull --ff-only &&
+python3 .repo/local_manifests/tools/recover_caf_namespaces.py --apply &&
+PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
+```
+
+The helper uses the active Repo manifest and each checked-out CAF project's
+`HEAD`. It removes namespace declarations only from tracked Blueprints whose
+`HEAD` has none, preserving other working and staged edits. It also recovers new
+files containing only namespace declarations and comments. Namespaces already
+in `HEAD` remain in place; new files with module definitions require review.
+The Repo-managed chipset-root exports are retained. Backups outside the source
+tree contain every affected working/index file, scoped patches, original
+revisions, and file modes. Keep the printed backup directory for recovery.
+
+Omit `--apply` to print the eligible files without modifying anything. CI checks
+this recovery against pinned SM8750 graphservice Blueprints, alongside fixture
+tests for staged changes, legitimate upstream scopes, comment/string handling,
+skip-worktree files, and concurrent edits.
+
 ### Pick up the shared kernel fixes
 
 The manifest pins an exact kernel commit, so updating the shared kernel's branch
