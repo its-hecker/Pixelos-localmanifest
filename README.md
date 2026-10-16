@@ -13,8 +13,8 @@ Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
 | `kernel/google/msm-4.14` | [CNB kernel](https://github.com/its-hecker/infinity_cnb_kernel_google_msm-4.14) | pinned `aaaa03e4`, from `cnb-Latest-stable` |
 | `packages/apps/ElmyraService` | [ElmyraService](https://github.com/LineageOS/android_packages_apps_ElmyraService) | pinned `baab2beb`, from `lineage-24.0` |
 | `vendor/lunaris/dolby` | [Lunaris Dolby](https://github.com/its-hecker/vendor_lunaris_dolby) | pinned `cf47b515`, from `main` |
-| `vendor/hecker/floral/motionsense` | [Motion Sense plugin](https://github.com/its-hecker/floral-motionsense-plugin) | pinned `75c8e5ff`, from `main` |
-| `vendor/hecker/floral/faceid` | [3D Face ID plugin](https://github.com/its-hecker/floral-3D-faceid-plugin) | pinned `0ba71789`, from `main` |
+| `vendor/hecker/floral/motionsense` | [Motion Sense plugin](https://github.com/its-hecker/floral-motionsense-plugin) | pinned `e66def12`, from `main` |
+| `vendor/hecker/floral/faceid` | [3D Face ID plugin](https://github.com/its-hecker/floral-3D-faceid-plugin) | pinned `93c00c7b`, from `main` |
 
 The old kernel branch `cnb` was renamed to `cnb-Latest-stable`. This setup uses
 that same CNB source, including its pinned KernelSU submodule (`sync-s="true"`).
@@ -33,6 +33,12 @@ eSIM receiver uses local resources because PixelOS disables the Lineage SDK.
 The unused base Oslo application policy and debug-property labels are removed;
 the standalone plugin generates its own scoped platform policy. Stock Soli/CHRE,
 FaceAuth, Citadel and camera services/firmware remain present.
+
+The Face ID plugin declares library replacements for generated vendor images,
+including libraries pulled in through transitive dependencies. It shares the
+ROM's byte-identical v33 stagefright foundation provider, retaining its 32-bit
+variant, instead of installing a second copy at the same path. Preparation
+checks that provider against the plugin's immutable ABI input.
 
 The stock camera binary uses a distinct `-coral` build module name, with its
 original filename retained through `stem`. This keeps its AIDL V1 dependencies

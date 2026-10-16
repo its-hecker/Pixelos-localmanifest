@@ -80,6 +80,9 @@ def check_product_make(rom):
             set(packages), "Prepared plugin packages are missing")
     require(not {"android.hardware.biometrics.face@1.0-service.google", "OsloFeedback"} &
             set(packages), "Replaced stock plugin packages were retained")
+    require("libstagefright_foundation-v33" in packages and
+            "FloralFaceIDV33Foundation" not in packages,
+            "Face ID must select the shared multilib v33 foundation provider")
     require("keep:vendor/etc/keep" in copies and face +
             "/configs/android.hardware.biometrics.face.xml:vendor/etc/permissions/android.hardware.biometrics.face.xml"
             in copies, "Plugin permission copy or unrelated product copy was lost")
@@ -115,6 +118,33 @@ def check_plugin_blueprints(rom):
         require("package" in modules and "license" in modules,
                 str(path) + ": plugin package/license metadata was lost")
     print("PASS: both generated plugin namespaces precede their license modules.")
+
+
+def check_face_library_ownership(rom):
+    face = rom / "vendor/hecker/floral/faceid"
+    bp = (face / "Android.bp").read_text()
+    base = (rom / "vendor/google/coral/Android.bp").read_text()
+    replacements = {
+        "FloralFaceIDCitadelImpl": "android.hardware.keymaster@4.1-impl.nos",
+        "FloralFaceIDCalibrationProto": "libface-calibration-proto",
+        "FloralFaceIDEnrollmentProto": "libface-enroll-proto",
+        "FloralFaceIDAuthUtil": "libfaceauth-util",
+        "FloralFaceIDAirbrushClient": "libairbrush-pixel",
+    }
+    for module, original in replacements.items():
+        block = re.search(r'(?ms)^cc_prebuilt_library_shared\s*\{\s*name:\s*"' +
+                          re.escape(module) + r'",.*?^\}', bp)
+        require(block is not None and 'overrides: ["' + original + '"]' in block.group(),
+                module + ": missing override for a transitively installed stock library")
+        require('name: "' + original + '"' in base,
+                "Pinned vendor fixture no longer covers the replaced library: " + original)
+    profile = json.loads((face / "generated/profile.json").read_text())
+    require(profile["foundation_module"] == "libstagefright_foundation-v33" and
+            'name: "FloralFaceIDV33Foundation"' not in bp and
+            '"libstagefright_foundation-v33"' in (face / "native/camera/Android.bp").read_text(),
+            "Face ID retained a second owner for the existing v33 foundation library")
+    print("PASS: replaced stock Face ID libraries have packaging overrides;")
+    print("the identical Lineage v33 foundation provider is shared with both architectures retained.")
 
 
 def check_caf_scope_recovery(rom):
@@ -188,6 +218,7 @@ def test(rom, fetch=True):
     prepare(rom, offline=True)
     require(profiles(rom) == first, "Repeated setup changed generated outputs")
     check_plugin_blueprints(rom)
+    check_face_library_ownership(rom)
     check_product_make(rom)
     motion = rom / "vendor/hecker/floral/motionsense"
     face = rom / "vendor/hecker/floral/faceid"

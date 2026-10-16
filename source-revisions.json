@@ -18,6 +18,16 @@
     }
   },
   "pixelos_inputs": {
+    "hardware/lineage/compat": {
+      "repository": "LineageOS/android_hardware_lineage_compat",
+      "branch": "lineage-24.0",
+      "revision": "590c94850e079642136a4577305d02e4174caabc",
+      "files": [
+        "Android.bp",
+        "vndk/v33/arm/libstagefright_foundation-v33.so",
+        "vndk/v33/arm64/libstagefright_foundation-v33.so"
+      ]
+    },
     "hardware/qcom-caf/sm8750/audio/graphservices": {
       "repository": "LineageOS/android_vendor_qcom_opensource_audioreach-graphservices",
       "branch": "lineage-24.0-caf-sm8750",
