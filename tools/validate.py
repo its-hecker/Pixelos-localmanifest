@@ -10,7 +10,7 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
-from camera_install import configure as configure_camera
+from camera_install import configure as configure_camera, SOURCE as CAMERA_SOURCE, SERVICE as CAMERA_SERVICE
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -85,12 +85,59 @@ def camera_prebuilt(rom):
             "Camera extraction would recreate the AOSP/prebuilt module collision")
     init = vendor / "proprietary/vendor/etc/init" / (stock + ".rc")
     require("/vendor/bin/hw/" + stock in init.read_text(), "Camera init executable path differs")
+    camera_init(rom)
     declaration = vendor / "proprietary/vendor/etc/vintf/manifest" / (stock + ".xml")
     hal = ET.parse(declaration).getroot().find("hal")
     require(hal is not None and hal.get("format") == "aidl" and
             hal.findtext("name") == "android.hardware.camera.provider" and
             hal.findtext("version") == "1", "Stock camera VINTF provider changed")
     print("Coral camera prebuilt identity, stock service path and AIDL V1 packaging: PASS")
+
+
+def camera_init(rom):
+    # Soong exports init_rc even when no_full_install suppresses the binary's
+    # legacy copy rule. Keep that installer and omit the duplicate Make copy.
+    filename = CAMERA_SERVICE + ".rc"
+    source_bp = rom / CAMERA_SOURCE
+    block = re.search(r'(?ms)^cc_binary\s*\{\s*name:\s*"' +
+                      re.escape(CAMERA_SERVICE) + r'",.*?^\}', source_bp.read_text())
+    require(block is not None and re.search(r'init_rc:\s*\[\s*"' +
+            re.escape(filename) + r'"\s*,?\s*\]', block.group()),
+            "Review the AOSP camera init installer before building Coral")
+    stock = rom / "vendor/google/coral/proprietary/vendor/etc/init" / filename
+    require((source_bp.parent / filename).read_bytes() == stock.read_bytes(),
+            "AOSP camera init differs from Coral's stock script; review startup configuration")
+    copy_prefix = "vendor/google/coral/proprietary/vendor/etc/init/" + filename + ":"
+    make = (rom / "vendor/google/coral/coral-vendor.mk").read_text()
+    require(not any(line.lstrip().startswith(copy_prefix) for line in make.splitlines()),
+            "Sync vendor/google/coral: remove the duplicate camera init PRODUCT_COPY_FILES entry")
+
+
+def init_installers(rom, copies):
+    """Audit init_rc exports independently of binary full-install ownership."""
+    owners = {}
+
+    def add(destination, owner):
+        owners.setdefault(destination, set()).add(owner)
+
+    for relative in ("vendor/google/coral/Android.bp", CAMERA_SOURCE,
+                     "vendor/hecker/floral/faceid/Android.bp"):
+        path = rom / relative
+        for block in re.findall(r'(?ms)^cc_(?:prebuilt_)?binary\s*\{.*?^\}', path.read_text()):
+            # Identical source/destination pairs shared by variants or modules
+            # are deduplicated by Soong. no_full_install does not gate init_rc.
+            for value in re.findall(r'(?ms)^    init_rc:\s*\[([^\]]*)\]', block):
+                for filename in re.findall(r'"([^"]+)"', value):
+                    destination = "vendor/etc/init/" + Path(filename).name
+                    add(destination, "Soong:" + (path.parent / filename).relative_to(rom).as_posix())
+    for entry in copies:
+        fields = entry.split(":")
+        if len(fields) >= 2 and fields[1].startswith("vendor/etc/init/"):
+            add(fields[1], "PRODUCT_COPY_FILES:" + fields[0])
+    for destination, providers in owners.items():
+        require(len(providers) == 1,
+                "Two init installers for " + destination + ": " + ", ".join(sorted(providers)))
+    return owners
 
 
 FACE_REPLACEMENTS = {

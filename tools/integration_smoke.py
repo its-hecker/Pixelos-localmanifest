@@ -15,7 +15,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 from prepare import prepare
-from validate import ROOT, FACE_REPLACEMENTS, camera_prebuilt, manifest, require, replaced_vendor_installers
+from validate import ROOT, FACE_REPLACEMENTS, camera_prebuilt, init_installers, manifest, require, replaced_vendor_installers
 from camera_install import SOURCE as CAMERA_SOURCE, SERVICE as CAMERA_SERVICE
 from check_qcom_namespaces import check as check_namespaces, namespace_links
 from recover_caf_namespaces import inventory as caf_inventory, apply as recover_caf, namespace_blocks
@@ -58,6 +58,7 @@ def check_product_make(rom):
         "TARGET_COPY_OUT_VENDOR := vendor",
         "PRODUCT_PACKAGES := KeepMe android.hardware.biometrics.face@1.0-service.google OsloFeedback",
         "PRODUCT_COPY_FILES := keep:vendor/etc/keep",
+        "include vendor/google/coral/coral-vendor.mk",
         "include " + motion + "/motionsense.mk",
         "include " + face + "/faceid.mk",
         "include " + motion + "/BoardConfigMotionSense.mk",
@@ -90,7 +91,25 @@ def check_product_make(rom):
             in copies, "Plugin permission copy or unrelated product copy was lost")
     require(face + "/sepolicy/vendor" in values.get("MAKE_POLICY", "").split(),
             "Face ID vendor policy is missing")
+    owners = init_installers(rom, copies)
+    camera_destination = "vendor/etc/init/" + CAMERA_SERVICE + ".rc"
+    require(owners.get(camera_destination) == {
+            "Soong:" + str(Path(CAMERA_SOURCE).parent / (CAMERA_SERVICE + ".rc"))},
+            "The camera init script must have its single Soong installer")
+    # Restore the actual Make entry from the failed build: the source binary's
+    # no_full_install flag must not hide this duplicate from the audit.
+    duplicate = ("vendor/google/coral/proprietary/vendor/etc/init/" + CAMERA_SERVICE +
+                 ".rc:" + camera_destination)
+    try:
+        init_installers(rom, copies + [duplicate])
+    except ValueError as error:
+        require("Two init installers for " + camera_destination in str(error),
+                "Init regression failed for an unrelated reason: " + str(error))
+    else:
+        raise ValueError("The camera init PRODUCT_COPY_FILES regression was accepted")
     print("PASS: real prepared product and board entries parse before Android's my-dir helper.")
+    print("PASS: init_rc and resolved vendor/product copies have one installer per path;")
+    print("the removed camera init Make entry reproduces and rejects the duplicate.")
 
 
 def check_namespace_setup(rom):

@@ -51,8 +51,12 @@ original filename retained through `stem`. This keeps its AIDL V1 dependencies
 separate from the newer AOSP source service. Device/vendor product entries and
 the blob extraction suffix select that module together. Preparation backs up
 and sets `no_full_install: true` on the AOSP eager camera service and its VINTF
-fragment, so Make receives only the stock prebuilt's copy rules. Other camera
-modules and local source edits are preserved. The original Blueprint is saved
+fragment, so Make receives one binary/manifest installer. The source service
+keeps its `init_rc` attachment: its script is byte-identical to Coral's stock
+script, and the redundant vendor `PRODUCT_COPY_FILES` entry is removed. Soong
+exports init scripts independently of `no_full_install`; integration checks both
+those exports and the resolved vendor/plugin Make copies. Other camera modules
+and local source edits are preserved. The original Blueprint is saved
 under `out/floral-camera-install/`. If an older checkout
 reports camera metadata V1/V3 conflicts through `android.prebuiltDependencyTag`,
 sync both copies before rebuilding:
