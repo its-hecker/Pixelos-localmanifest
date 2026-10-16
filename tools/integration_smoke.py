@@ -147,6 +147,33 @@ def check_face_library_ownership(rom):
     print("the identical Lineage v33 foundation provider is shared with both architectures retained.")
 
 
+def check_dolby_sysconfig(rom):
+    # Soong namespaces are exported into Make's shared ETC module registry.
+    # Check the installed paths too: renaming a module alone can leave a
+    # second conflict when both sysconfig files are packaged.
+    names, destinations = set(), set()
+    for directory in (rom / "packages/apps/DolbyAtmos",
+                      rom / "vendor/lunaris/dolby/LunarisDolby"):
+        bp = (directory / "Android.bp").read_text()
+        declared = set()
+        for block in re.findall(r'(?ms)^prebuilt_etc\s*\{.*?^\}', bp):
+            values = dict(re.findall(r'(\w+):\s*"([^"]+)"', block))
+            name = values["name"]
+            require(name not in names, "Dolby apps export the same Make ETC module: " + name)
+            names.add(name)
+            declared.add(name)
+            require("system_ext_specific: true" in block and values["sub_dir"] == "sysconfig",
+                    "Review the changed Dolby sysconfig partition or directory")
+            destination = values.get("filename", name)
+            require(destination not in destinations, "Dolby sysconfig destination collision: " + destination)
+            destinations.add(destination)
+            ET.parse(directory / values["src"])
+        required = re.search(r'required:\s*\[([^\]]+)\]', bp)
+        require(required is not None and set(re.findall(r'"([^"]+)"', required.group(1))) <= declared,
+                "Dolby app required files do not reference its own sysconfig modules")
+    print("PASS: both Dolby apps have distinct Make ETC modules and sysconfig filenames.")
+
+
 def check_caf_scope_recovery(rom):
     relative = "hardware/qcom-caf/sm8750/audio/graphservices"
     project = rom / relative
@@ -192,12 +219,17 @@ def test(rom, fetch=True):
                       "proprietary/vendor/firmware/faceauth_config.yaml",
                       "proprietary/vendor/firmware/faceauth_v1.mdt"] if path == "vendor/google/coral" else None
             checkout(rom, path, project.get("name"), project.get("revision"), sparse)
+        dolby = projects["vendor/lunaris/dolby"]
+        checkout(rom, "vendor/lunaris/dolby", dolby.get("name"), dolby.get("revision"),
+                 ["LunarisDolby/Android.bp", "LunarisDolby/preinstalled-packages-platform-dolby.xml",
+                  "LunarisDolby/privapp-permissions-dolby.xml"])
         for path, item in lock["pixelos_inputs"].items():
             checkout(rom, path, item["repository"], item["revision"], item["files"])
         reference = lock["pixelos_manifest"]
         checkout(rom, "out/floral-manifest-reference", reference["repository"],
                  reference["revision"], ["snippets/lineage.xml"])
     camera_prebuilt(rom)
+    check_dolby_sysconfig(rom)
     check_namespace_setup(rom)
     check_caf_scope_recovery(rom)
     references = rom / "out/floral-framework-reference"

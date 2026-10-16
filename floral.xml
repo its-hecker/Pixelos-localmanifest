@@ -29,8 +29,8 @@
            upstream="refs/heads/lineage-24.0" />
   <project name="its-hecker/vendor_lunaris_dolby"
            path="vendor/lunaris/dolby" remote="floral-github"
-           revision="cf47b5151a63ecf3f11b124c252f29217b77356b"
-           upstream="refs/heads/main" />
+           revision="544e6271c955e2bf450c8481ac1e71551cb5a800"
+           upstream="refs/heads/pixelos-compat" dest-branch="pixelos-compat" />
 
   <!-- Test the standalone plugins, with their own immutable prebuilt locks. -->
   <project name="its-hecker/floral-motionsense-plugin"

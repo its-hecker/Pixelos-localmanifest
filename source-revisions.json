@@ -18,6 +18,15 @@
     }
   },
   "pixelos_inputs": {
+    "packages/apps/DolbyAtmos": {
+      "repository": "PixelOS-AOSP/android_packages_apps_DolbyAtmos",
+      "branch": "seventeen",
+      "revision": "13bbe61cf3e1046e3a1f0bda4719c321c953ce50",
+      "files": [
+        "Android.bp",
+        "preinstalled-packages-platform-dolby.xml"
+      ]
+    },
     "hardware/lineage/compat": {
       "repository": "LineageOS/android_hardware_lineage_compat",
       "branch": "lineage-24.0",
