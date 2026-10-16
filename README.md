@@ -34,6 +34,19 @@ The unused base Oslo application policy and debug-property labels are removed;
 the standalone plugin generates its own scoped platform policy. Stock Soli/CHRE,
 FaceAuth, Citadel and camera services/firmware remain present.
 
+The stock camera binary uses a distinct `-coral` build module name, with its
+original filename retained through `stem`. This keeps its AIDL V1 dependencies
+separate from the newer AOSP source service. Device/vendor product entries and
+the blob extraction suffix select that module together. If an older checkout
+reports camera metadata V1/V3 conflicts through `android.prebuiltDependencyTag`,
+sync both copies before rebuilding:
+
+```bash
+git -C .repo/local_manifests pull --ff-only
+repo sync -c -j2 --fail-fast device/google/coral vendor/google/coral
+PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
+```
+
 Face compatibility code, enhanced Oslo APKs and Motion Sense settings are selected
 through the plugins' product/board files. Plugin inheritance is last, after the
 vendor product. PixelOS's software `ParanoidSense` Face Unlock is disabled before

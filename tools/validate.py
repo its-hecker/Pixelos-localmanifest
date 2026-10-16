@@ -49,6 +49,45 @@ def manifest(root=ROOT):
     print("Local manifest paths, dependency pins and kernel submodule sync: PASS")
 
 
+def camera_prebuilt(rom):
+    # Pairing this V1 prebuilt with the newer AOSP service makes Soong traverse
+    # both camera metadata versions, even when prefer: true selects the blob.
+    stock = "android.hardware.camera.provider@2.7-service-google"
+    module = stock + "-coral"
+    device = rom / "device/google/coral"
+    vendor = rom / "vendor/google/coral"
+    bp = (vendor / "Android.bp").read_text()
+    matches = re.findall(r'(?ms)^cc_prebuilt_binary\s*\{\s*name:\s*"' +
+                         re.escape(module) + r'",.*?^\}', bp)
+    require(len(matches) == 1, "Missing distinct Coral camera prebuilt module; sync device/vendor sources")
+    block = matches[0]
+    require('stem: "' + stock + '"' in block and
+            '"proprietary/vendor/bin/hw/' + stock + '"' in block and
+            'relative_install_path: "hw"' in block and 'soc_specific: true' in block,
+            "Coral camera prebuilt does not install at its stock vendor service path")
+    aidl = set(re.findall(r'"(android\.hardware\.camera\.[^"/]+-V\d+-ndk)"', block))
+    require(aidl == {"android.hardware.camera.device-V1-ndk",
+                     "android.hardware.camera.common-V1-ndk",
+                     "android.hardware.camera.provider-V1-ndk"},
+            "Stock Coral camera prebuilt must retain its AIDL V1 dependencies")
+    for path in (device / "device-common.mk", vendor / "coral-vendor.mk"):
+        text = path.read_text()
+        require(re.search(r'(?m)^\s*' + re.escape(module) + r'\s*(?:\\)?\s*$', text) and
+                not re.search(r'(?m)^\s*' + re.escape(stock) + r'\s*(?:\\)?\s*$', text),
+                str(path) + ": select only the distinct Coral camera prebuilt")
+    entry = "vendor/bin/hw/" + stock + ";MODULE_SUFFIX=-coral"
+    require(entry in (device / "coral/proprietary-files-vendor.txt").read_text().splitlines(),
+            "Camera extraction would recreate the AOSP/prebuilt module collision")
+    init = vendor / "proprietary/vendor/etc/init" / (stock + ".rc")
+    require("/vendor/bin/hw/" + stock in init.read_text(), "Camera init executable path differs")
+    declaration = vendor / "proprietary/vendor/etc/vintf/manifest" / (stock + ".xml")
+    hal = ET.parse(declaration).getroot().find("hal")
+    require(hal is not None and hal.get("format") == "aidl" and
+            hal.findtext("name") == "android.hardware.camera.provider" and
+            hal.findtext("version") == "1", "Stock camera VINTF provider changed")
+    print("Coral camera prebuilt identity, stock service path and AIDL V1 packaging: PASS")
+
+
 def source(rom):
     required = [
         "device/google/coral/custom_coral.mk", "device/google/coral/BoardConfig-common.mk",
@@ -71,6 +110,7 @@ def source(rom):
     require(len(gitlink) == 4 and gitlink[0] == "160000" and gitlink[2] == submodule_revision,
             "KernelSU checkout differs from the kernel's gitlink; run repo sync")
     device = rom / "device/google/coral"
+    camera_prebuilt(rom)
     product = (device / "custom_coral.mk").read_text()
     common = "$(call inherit-product, vendor/custom/config/common_full_phone.mk)"
     vendor = "$(call inherit-product, vendor/google/coral/coral-vendor.mk)"

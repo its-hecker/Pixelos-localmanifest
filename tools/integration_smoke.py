@@ -15,7 +15,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 from prepare import prepare
-from validate import ROOT, manifest, require
+from validate import ROOT, camera_prebuilt, manifest, require
 from check_qcom_namespaces import check as check_namespaces, namespace_links
 from recover_caf_namespaces import inventory as caf_inventory, apply as recover_caf, namespace_blocks
 
@@ -156,7 +156,10 @@ def test(rom, fetch=True):
         for path in ["device/google/coral", "vendor/google/coral", "vendor/hecker/floral/motionsense",
                      "vendor/hecker/floral/faceid"]:
             project = projects[path]
-            sparse = ["Android.bp", "proprietary/vendor/firmware/faceauth_config.yaml",
+            sparse = ["Android.bp", "coral-vendor.mk",
+                      "proprietary/vendor/etc/init/android.hardware.camera.provider@2.7-service-google.rc",
+                      "proprietary/vendor/etc/vintf/manifest/android.hardware.camera.provider@2.7-service-google.xml",
+                      "proprietary/vendor/firmware/faceauth_config.yaml",
                       "proprietary/vendor/firmware/faceauth_v1.mdt"] if path == "vendor/google/coral" else None
             checkout(rom, path, project.get("name"), project.get("revision"), sparse)
         for path, item in lock["pixelos_inputs"].items():
@@ -164,6 +167,7 @@ def test(rom, fetch=True):
         reference = lock["pixelos_manifest"]
         checkout(rom, "out/floral-manifest-reference", reference["repository"],
                  reference["revision"], ["snippets/lineage.xml"])
+    camera_prebuilt(rom)
     check_namespace_setup(rom)
     check_caf_scope_recovery(rom)
     references = rom / "out/floral-framework-reference"
