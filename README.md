@@ -14,7 +14,7 @@ Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
 | `packages/apps/ElmyraService` | [ElmyraService](https://github.com/LineageOS/android_packages_apps_ElmyraService) | pinned `baab2beb`, from `lineage-24.0` |
 | `vendor/lunaris/dolby` | [Lunaris Dolby](https://github.com/its-hecker/vendor_lunaris_dolby) | pinned `544e6271`, from `pixelos-compat` |
 | `vendor/hecker/floral/motionsense` | [Motion Sense plugin](https://github.com/its-hecker/floral-motionsense-plugin) | pinned `e66def12`, from `main` |
-| `vendor/hecker/floral/faceid` | [3D Face ID plugin](https://github.com/its-hecker/floral-3D-faceid-plugin) | pinned `93c00c7b`, from `main` |
+| `vendor/hecker/floral/faceid` | [3D Face ID plugin](https://github.com/its-hecker/floral-3D-faceid-plugin) | pinned `96b7e58a`, from `main` |
 
 The old kernel branch `cnb` was renamed to `cnb-Latest-stable`. This setup uses
 that same CNB source, including its pinned KernelSU submodule (`sync-s="true"`).
@@ -40,14 +40,20 @@ PixelOS's checked-out `DolbyAtmos` app during Make module registration.
 
 The Face ID plugin declares library replacements for generated vendor images,
 including libraries pulled in through transitive dependencies. It shares the
-ROM's byte-identical v33 stagefright foundation provider, retaining its 32-bit
-variant, instead of installing a second copy at the same path. Preparation
-checks that provider against the plugin's immutable ABI input.
+ROM's byte-identical v33 base, crypto and stagefright foundation providers,
+retaining their 32-bit variants. Preparation checks each provider against the
+plugin's immutable ABI inputs. The eight replaced stock Face ID service/library
+modules retain dependency resolution with `no_full_install: true`; their full
+copy rules would otherwise collide with the selected plugin modules in Make.
 
 The stock camera binary uses a distinct `-coral` build module name, with its
 original filename retained through `stem`. This keeps its AIDL V1 dependencies
 separate from the newer AOSP source service. Device/vendor product entries and
-the blob extraction suffix select that module together. If an older checkout
+the blob extraction suffix select that module together. Preparation backs up
+and sets `no_full_install: true` on the AOSP eager camera service and its VINTF
+fragment, so Make receives only the stock prebuilt's copy rules. Other camera
+modules and local source edits are preserved. The original Blueprint is saved
+under `out/floral-camera-install/`. If an older checkout
 reports camera metadata V1/V3 conflicts through `android.prebuiltDependencyTag`,
 sync both copies before rebuilding:
 

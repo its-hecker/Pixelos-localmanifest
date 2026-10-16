@@ -1,5 +1,5 @@
 {
-  "checked_on": "2026-10-13",
+  "checked_on": "2026-10-16",
   "pixelos_manifest": {
     "repository": "PixelOS-AOSP/android_manifest",
     "branch": "seventeen",
@@ -34,7 +34,11 @@
       "files": [
         "Android.bp",
         "vndk/v33/arm/libstagefright_foundation-v33.so",
-        "vndk/v33/arm64/libstagefright_foundation-v33.so"
+        "vndk/v33/arm64/libstagefright_foundation-v33.so",
+        "vndk/v33/arm/libbase-v33.so",
+        "vndk/v33/arm64/libbase-v33.so",
+        "vndk/v33/arm/libcrypto-v33.so",
+        "vndk/v33/arm64/libcrypto-v33.so"
       ]
     },
     "hardware/qcom-caf/sm8750/audio/graphservices": {
@@ -84,6 +88,14 @@
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceEnrollClient.java",
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java",
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlConversionUtils.java"
+      ]
+    },
+    "hardware/google/camera": {
+      "repository": "https://android.googlesource.com/platform/hardware/google/camera",
+      "branch": "android-17.0.0_r1",
+      "revision": "cd15337bd229dd521a860d88bca3e37c3ca845f7",
+      "files": [
+        "common/hal/aidl_service/Android.bp"
       ]
     }
   }

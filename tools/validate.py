@@ -10,6 +10,8 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
+from camera_install import configure as configure_camera
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECTS = {
@@ -61,6 +63,9 @@ def camera_prebuilt(rom):
                          re.escape(module) + r'",.*?^\}', bp)
     require(len(matches) == 1, "Missing distinct Coral camera prebuilt module; sync device/vendor sources")
     block = matches[0]
+    require('overrides: ["' + stock + '"]' in block and
+            'no_full_install: true' not in block,
+            "Sync vendor/google/coral: the stock camera must own its full install rules")
     require('stem: "' + stock + '"' in block and
             '"proprietary/vendor/bin/hw/' + stock + '"' in block and
             'relative_install_path: "hw"' in block and 'soc_specific: true' in block,
@@ -88,6 +93,27 @@ def camera_prebuilt(rom):
     print("Coral camera prebuilt identity, stock service path and AIDL V1 packaging: PASS")
 
 
+FACE_REPLACEMENTS = {
+    "FloralFaceIDCitadelImpl": "android.hardware.keymaster@4.1-impl.nos",
+    "FloralFaceIDCalibrationProto": "libface-calibration-proto",
+    "FloralFaceIDEnrollmentProto": "libface-enroll-proto",
+    "FloralFaceIDAuthUtil": "libfaceauth-util",
+    "FloralFaceIDAirbrushClient": "libairbrush-pixel",
+    "FloralFaceIDCitadelKeymaster": "android.hardware.keymaster@4.1-service.citadel",
+    "FloralFaceIDNeuralNetworks": "android.hardware.neuralnetworks@1.2-service-noronha",
+    "FloralFaceIDAirbrushService": "vendor.google.airbrush@1.0-service",
+}
+
+
+def replaced_vendor_installers(rom):
+    source = (rom / "vendor/google/coral/Android.bp").read_text()
+    for name in FACE_REPLACEMENTS.values():
+        blocks = re.findall(r'(?ms)^cc_prebuilt_(?:binary|library_shared)\s*\{\s*name:\s*"' +
+                            re.escape(name) + r'",.*?^\}', source)
+        require(len(blocks) == 1 and re.search(r'(?m)^    no_full_install: true,', blocks[0]),
+                "Sync vendor/google/coral: suppress the replaced stock install rule for " + name)
+
+
 def source(rom):
     required = [
         "device/google/coral/custom_coral.mk", "device/google/coral/BoardConfig-common.mk",
@@ -111,6 +137,9 @@ def source(rom):
             "KernelSU checkout differs from the kernel's gitlink; run repo sync")
     device = rom / "device/google/coral"
     camera_prebuilt(rom)
+    replaced_vendor_installers(rom)
+    require(configure_camera(rom) == "already configured",
+            "Run build.sh preparation to select the stock camera install rules")
     product = (device / "custom_coral.mk").read_text()
     common = "$(call inherit-product, vendor/custom/config/common_full_phone.mk)"
     vendor = "$(call inherit-product, vendor/google/coral/coral-vendor.mk)"

@@ -9,6 +9,9 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
+from camera_install import configure as configure_camera, SOURCE as CAMERA_SOURCE
+from validate import camera_prebuilt, replaced_vendor_installers
+
 
 OVERLAY_ROOTS = [
     "vendor/lineage/overlay/common",
@@ -48,6 +51,7 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
         "device/google/coral/custom_coral.mk",
         "device/google/coral/BoardConfig-common.mk",
         "vendor/google/coral/Android.bp",
+        CAMERA_SOURCE,
         "vendor/google/coral/proprietary/vendor/firmware/faceauth_config.yaml",
         "vendor/google/coral/proprietary/vendor/firmware/faceauth_v1.mdt",
         "vendor/custom/config/common_full_phone.mk",
@@ -64,6 +68,11 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
     product = (rom / "device/google/coral/custom_coral.mk").read_text()
     if "TARGET_FACE_UNLOCK_SUPPORTED := false" not in product:
         raise ValueError("Disable PixelOS ParanoidSense before using the IR Face HAL")
+    camera_prebuilt(rom)
+    replaced_vendor_installers(rom)
+    # Keep source modules available for dependencies, but export only the
+    # selected stock prebuilt's full install rules to Make.
+    print("Coral camera install ownership:", configure_camera(rom, write=True))
     # Refuse unfamiliar framework methods before making any framework changes.
     run(rom, face, "apply_framework_fixes.py", "--rom-root", rom, "--check")
     fetch_arguments = ["--verify-only"] if offline else []

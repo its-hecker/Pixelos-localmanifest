@@ -15,7 +15,8 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 from prepare import prepare
-from validate import ROOT, camera_prebuilt, manifest, require
+from validate import ROOT, FACE_REPLACEMENTS, camera_prebuilt, manifest, require, replaced_vendor_installers
+from camera_install import SOURCE as CAMERA_SOURCE, SERVICE as CAMERA_SERVICE
 from check_qcom_namespaces import check as check_namespaces, namespace_links
 from recover_caf_namespaces import inventory as caf_inventory, apply as recover_caf, namespace_blocks
 
@@ -28,7 +29,8 @@ def checkout(rom, path, repository, revision, files=None):
     destination = rom / path
     destination.mkdir(parents=True)
     git("init", "--quiet", destination)
-    git("remote", "add", "origin", "https://github.com/" + repository + ".git", cwd=destination)
+    remote = repository if repository.startswith("https://") else "https://github.com/" + repository + ".git"
+    git("remote", "add", "origin", remote, cwd=destination)
     if files:
         git("config", "core.sparseCheckout", "true", cwd=destination)
         (destination / ".git/info/sparse-checkout").write_text("\n".join("/" + p for p in files) + "\n")
@@ -80,9 +82,9 @@ def check_product_make(rom):
             set(packages), "Prepared plugin packages are missing")
     require(not {"android.hardware.biometrics.face@1.0-service.google", "OsloFeedback"} &
             set(packages), "Replaced stock plugin packages were retained")
-    require("libstagefright_foundation-v33" in packages and
-            "FloralFaceIDV33Foundation" not in packages,
-            "Face ID must select the shared multilib v33 foundation provider")
+    require({"libbase-v33", "libcrypto-v33", "libstagefright_foundation-v33"} <= set(packages) and
+            not {"FloralFaceIDV33Base", "FloralFaceIDV33Crypto", "FloralFaceIDV33Foundation"} & set(packages),
+            "Face ID must select the shared multilib v33 providers")
     require("keep:vendor/etc/keep" in copies and face +
             "/configs/android.hardware.biometrics.face.xml:vendor/etc/permissions/android.hardware.biometrics.face.xml"
             in copies, "Plugin permission copy or unrelated product copy was lost")
@@ -124,27 +126,78 @@ def check_face_library_ownership(rom):
     face = rom / "vendor/hecker/floral/faceid"
     bp = (face / "Android.bp").read_text()
     base = (rom / "vendor/google/coral/Android.bp").read_text()
-    replacements = {
-        "FloralFaceIDCitadelImpl": "android.hardware.keymaster@4.1-impl.nos",
-        "FloralFaceIDCalibrationProto": "libface-calibration-proto",
-        "FloralFaceIDEnrollmentProto": "libface-enroll-proto",
-        "FloralFaceIDAuthUtil": "libfaceauth-util",
-        "FloralFaceIDAirbrushClient": "libairbrush-pixel",
-    }
-    for module, original in replacements.items():
-        block = re.search(r'(?ms)^cc_prebuilt_library_shared\s*\{\s*name:\s*"' +
+    for module, original in FACE_REPLACEMENTS.items():
+        block = re.search(r'(?ms)^cc_prebuilt_(?:binary|library_shared)\s*\{\s*name:\s*"' +
                           re.escape(module) + r'",.*?^\}', bp)
         require(block is not None and 'overrides: ["' + original + '"]' in block.group(),
                 module + ": missing override for a transitively installed stock library")
         require('name: "' + original + '"' in base,
                 "Pinned vendor fixture no longer covers the replaced library: " + original)
     profile = json.loads((face / "generated/profile.json").read_text())
-    require(profile["foundation_module"] == "libstagefright_foundation-v33" and
-            'name: "FloralFaceIDV33Foundation"' not in bp and
-            '"libstagefright_foundation-v33"' in (face / "native/camera/Android.bp").read_text(),
-            "Face ID retained a second owner for the existing v33 foundation library")
-    print("PASS: replaced stock Face ID libraries have packaging overrides;")
-    print("the identical Lineage v33 foundation provider is shared with both architectures retained.")
+    expected = {"FloralFaceIDV33Base": "libbase-v33", "FloralFaceIDV33Crypto": "libcrypto-v33",
+                "FloralFaceIDV33Foundation": "libstagefright_foundation-v33"}
+    require(profile["compat_modules"] == expected and all(
+            'name: "' + alias + '"' not in bp for alias in expected),
+            "Face ID retained a second owner for an existing v33 library")
+    require('"libstagefright_foundation-v33"' in (face / "native/camera/Android.bp").read_text(),
+            "Camera compatibility library does not use the shared foundation provider")
+    print("PASS: all eight Face ID replacements have packaging overrides;")
+    print("the identical v33 base, crypto and foundation providers retain both architectures.")
+
+
+def check_native_installs(rom):
+    # Reproduce the unconditional full-install export that happens before
+    # Make's product/override filtering. Check destinations, not module names.
+    destinations = {}
+    selected = {CAMERA_SERVICE: "vendor/bin/hw/" + CAMERA_SERVICE,
+                CAMERA_SERVICE + "-coral": "vendor/bin/hw/" + CAMERA_SERVICE,
+                "hardware_camera_vintf": "vendor/etc/vintf/manifest/" + CAMERA_SERVICE + ".xml",
+                CAMERA_SERVICE + ".xml": "vendor/etc/vintf/manifest/" + CAMERA_SERVICE + ".xml"}
+    for alias, original in FACE_REPLACEMENTS.items():
+        destination = ("vendor/bin/hw/" + original if "service" in original else
+                       "vendor/lib64/" + original + ".so")
+        selected[alias] = selected[original] = destination
+    for alias, name in {"Base": "libbase-v33", "Crypto": "libcrypto-v33",
+                        "Foundation": "libstagefright_foundation-v33"}.items():
+        selected["FloralFaceIDV33" + alias] = selected[name] = "vendor/lib64/" + name + ".so"
+    seen = set()
+    for relative in ("vendor/google/coral/Android.bp", CAMERA_SOURCE,
+                     "vendor/hecker/floral/faceid/Android.bp", "hardware/lineage/compat/Android.bp"):
+        text = (rom / relative).read_text()
+        for block in re.findall(r'(?ms)^[A-Za-z_]\w*\s*\{.*?^\}', text):
+            name = re.search(r'(?m)^    name:\s*"([^"]+)"', block)
+            if not name or name[1] not in selected:
+                continue
+            module = name[1]
+            seen.add(module)
+            if re.search(r'(?m)^    no_full_install: true,', block):
+                continue
+            destination = selected[module]
+            require(destination not in destinations,
+                    "Two full installers for " + destination + ": " + destinations.get(destination, "") + " and " + module)
+            destinations[destination] = module
+    require(set(selected) - {"FloralFaceIDV33Base", "FloralFaceIDV33Crypto", "FloralFaceIDV33Foundation"} <= seen,
+            "Native installation fixture is missing a provider")
+    require(len(destinations) == 13, "Unexpected native install destination count")
+    # A product override alone must not pass this regression check.
+    vendor = rom / "vendor/google/coral/Android.bp"
+    original = vendor.read_bytes()
+    try:
+        for name in FACE_REPLACEMENTS.values():
+            pattern = (rb'(?ms)(^cc_prebuilt_(?:binary|library_shared)\s*\{\s*name:\s*"' +
+                       re.escape(name.encode()) + rb'",\s*)no_full_install: true,')
+            broken, count = re.subn(pattern, rb'\g<1>no_full_install: false,', original)
+            require(count == 1, "Missing real replaced-provider fixture: " + name)
+            vendor.write_bytes(broken)
+            try:
+                replaced_vendor_installers(rom)
+            except ValueError:
+                pass
+            else:
+                raise ValueError("A restored duplicate install rule was accepted: " + name)
+    finally:
+        vendor.write_bytes(original)
+    print("PASS: 13 native destinations have one full installer; all eight restored duplicates are rejected.")
 
 
 def check_dolby_sysconfig(rom):
@@ -251,6 +304,7 @@ def test(rom, fetch=True):
     require(profiles(rom) == first, "Repeated setup changed generated outputs")
     check_plugin_blueprints(rom)
     check_face_library_ownership(rom)
+    check_native_installs(rom)
     check_product_make(rom)
     motion = rom / "vendor/hecker/floral/motionsense"
     face = rom / "vendor/hecker/floral/faceid"

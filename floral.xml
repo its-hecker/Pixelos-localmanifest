@@ -39,6 +39,6 @@
            upstream="refs/heads/main" dest-branch="main" />
   <project name="its-hecker/floral-3D-faceid-plugin"
            path="vendor/hecker/floral/faceid" remote="floral-github"
-           revision="93c00c7ba599762f25995a1deaa9b8aafb422252"
+           revision="96b7e58ad8378f5b3902f9f4993eb88f4ee07ae2"
            upstream="refs/heads/main" dest-branch="main" />
 </manifest>
