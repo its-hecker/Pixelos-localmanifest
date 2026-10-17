@@ -3,6 +3,10 @@
 # Run from the Android source root, after repo sync.
 # Android's envsetup does not support nounset, so do not enable set -u here.
 set -eo pipefail
+case "${PIXEL_BUILD_VARIANT:-userdebug}" in
+    userdebug|eng) ;;
+    *) echo "The boot-diagnostics branch requires a userdebug or eng build." >&2; exit 1 ;;
+esac
 if [[ ! -d .repo ]]; then
     echo "Run this script from the PixelOS Android source root containing .repo." >&2
     exit 1

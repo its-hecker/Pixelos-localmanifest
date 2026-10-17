@@ -1,5 +1,5 @@
 {
-  "checked_on": "2026-10-16",
+  "checked_on": "2026-10-17",
   "pixelos_manifest": {
     "repository": "PixelOS-AOSP/android_manifest",
     "branch": "seventeen",
@@ -97,6 +97,23 @@
       "files": [
         "common/hal/aidl_service/Android.bp",
         "common/hal/aidl_service/android.hardware.camera.provider@2.7-service-google.rc"
+      ]
+    },
+    "system/sepolicy": {
+      "repository": "PixelOS-AOSP/android_system_sepolicy",
+      "branch": "seventeen",
+      "revision": "99c58a7cc9a44fe33c93808452d018e756d84753",
+      "files": [
+        "private/init.te",
+        "private/su.te"
+      ]
+    },
+    "system/core": {
+      "repository": "PixelOS-AOSP/android_system_core",
+      "branch": "seventeen",
+      "revision": "a5313eaec0219b021aaa5e59cc10dd07cfa8504c",
+      "files": [
+        "rootdir/init.rc"
       ]
     }
   }

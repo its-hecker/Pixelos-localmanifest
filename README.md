@@ -1,5 +1,28 @@
 # PixelOS Android 17 for Pixel 4 XL
 
+This `boot-diagnostics` branch records startup evidence for the Coral build
+stuck at the PixelOS animation. It pins a matching diagnostic device branch;
+the kernel, vendor and Face ID/Motion Sense plugin selections are retained.
+The capture starts at `early-fs` and writes bounded logs under
+`/metadata/pixelos-boot-debug`, before userdata mounting/decryption is needed.
+It requires a `userdebug` or `eng` build and uses the existing AOSP debug domain.
+It does not enable unauthenticated ADB or change global SELinux enforcement.
+
+Build this branch with the usual `build.sh`. Let the resulting ROM attempt to
+boot for two to three minutes, enter recovery without formatting, then collect:
+
+```bat
+adb devices
+adb pull /metadata/pixelos-boot-debug PixelOS-boot-debug
+```
+
+The script preserves the capture when entering recovery. Logcat rotates across
+four approximately 192 KiB files; snapshots and stderr are bounded, Metadata
+must have at least 4 MiB free, and capture ends on boot completion or after five
+minutes. ZIP the pulled folder for analysis. This is a diagnostic build, not a
+verified fix for the startup failure. To return to the regular setup, switch the
+local manifest back to `main` and sync `device/google/coral` before rebuilding.
+
 Build setup for **Pixel 4 XL (`coral`)** using PixelOS `seventeen`, independent
 Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
 **3D Face ID** and **Motion Sense** plugins.
@@ -8,7 +31,7 @@ Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
 
 | Checkout path | Repository | Revision |
 | --- | --- | --- |
-| `device/google/coral` | [PixelOS device copy](https://github.com/its-hecker/pixelos_android_device_google_coral) | `main` |
+| `device/google/coral` | [PixelOS device copy](https://github.com/its-hecker/pixelos_android_device_google_coral) | pinned `22c7fbaa`, from `boot-diagnostics` |
 | `vendor/google/coral` | [PixelOS vendor copy](https://github.com/its-hecker/pixelos_proprietary_vendor_google_coral) | `main` |
 | `kernel/google/msm-4.14` | [CNB kernel](https://github.com/its-hecker/infinity_cnb_kernel_google_msm-4.14) | pinned `aaaa03e4`, from `cnb-Latest-stable` |
 | `packages/apps/ElmyraService` | [ElmyraService](https://github.com/LineageOS/android_packages_apps_ElmyraService) | pinned `baab2beb`, from `lineage-24.0` |

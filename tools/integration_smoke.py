@@ -246,6 +246,30 @@ def check_dolby_sysconfig(rom):
     print("PASS: both Dolby apps have distinct Make ETC modules and sysconfig filenames.")
 
 
+def check_boot_capture(rom):
+    device = rom / "device/google/coral"
+    service = (device / "boot_diagnostics/boot_capture.rc").read_text()
+    require("on early-fs && property:ro.debuggable=1" in service and
+            "seclabel u:r:su:s0" in service and "    disabled" in service and
+            "    oneshot" in service, "Review the boot capture's startup/domain guards")
+    fstab = (device / "init/fstab.hardware").read_text()
+    require(re.search(r'(?m)^\S+\s+/metadata\s+ext4\s+\S+\s+\S*first_stage_mount', fstab),
+            "Boot capture requires Coral's first-stage Metadata mount")
+    init = (rom / "system/core/rootdir/init.rc").read_text()
+    phase = re.search(r'(?ms)^on late-init\n(.*?)(?=^on |\Z)', init)
+    require(phase is not None and phase[1].index("trigger early-fs") <
+            phase[1].index("trigger late-fs"), "Android's filesystem phase order changed")
+    policy = rom / "system/sepolicy/private"
+    require("allow init su:process transition;" in (policy / "init.te").read_text() and
+            "permissive su;" in (policy / "su.te").read_text(),
+            "Existing AOSP debug service permission/domain changed; review before building")
+    subprocess.run(["sh", "-n", str(device / "boot_diagnostics/boot_capture.sh")], check=True)
+    subprocess.run([sys.executable, str(ROOT / "tests/check_boot_capture.py"),
+                    "--device-root", str(device)], check=True)
+    print("PASS: early Metadata logging uses the existing AOSP debug domain;")
+    print("runtime, recovery, storage bounds and user-build exclusion checks passed.")
+
+
 def check_caf_scope_recovery(rom):
     relative = "hardware/qcom-caf/sm8750/audio/graphservices"
     project = rom / relative
@@ -301,6 +325,7 @@ def test(rom, fetch=True):
         checkout(rom, "out/floral-manifest-reference", reference["repository"],
                  reference["revision"], ["snippets/lineage.xml"])
     camera_prebuilt(rom)
+    check_boot_capture(rom)
     check_dolby_sysconfig(rom)
     check_namespace_setup(rom)
     check_caf_scope_recovery(rom)
