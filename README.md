@@ -1,8 +1,9 @@
 # PixelOS Android 17 for Pixel 4 XL
 
-This `boot-diagnostics` branch records startup evidence for the Coral build
-stuck at the PixelOS animation. It pins a matching diagnostic device branch;
-the kernel, vendor and Face ID/Motion Sense plugin selections are retained.
+The maintainer confirmed the previous `boot-diagnostics` Coral build boots.
+This branch now targets the remaining camera, Face ID and Motion Sense failures
+and selects the tested Google Camera 8.7 package. Device/vendor and Motion Sense
+compatibility pins match the fixes; the kernel and Face ID plugin are retained.
 The capture starts at `early-fs` and writes bounded logs under
 `/metadata/pixelos-boot-debug`, before userdata mounting/decryption is needed.
 It requires a `userdebug` or `eng` build and uses the existing AOSP debug domain.
@@ -16,9 +17,23 @@ system_ext/etc/permissions. Preparation backs up FaceProvider.java and changes
 only its reviewed HIDL registration method, publishing the new sensor before
 the lazy HAL connection can schedule cleanup. User switching and reconnect
 cleanup are retained. Unfamiliar source methods or contracts are refused.
-The native Face HAL also crashed during this dirty flash over stock Android 13;
-that failure is not claimed fixed. A fresh ROM build and clean-install phone
-test are still required. Keep the boot capture for any remaining failure.
+The running-system bug report then showed zero cameras and no parsed provider
+init script. The selected stock camera prebuilt now installs the script;
+preparation clears its competing attachment on the unused AOSP module. A narrow
+vendor_init rule permits ro.vendor.aware_available, whose denied set operation
+left Motion Sense unavailable. The duplicate Motion Sense launcher entry is
+removed while its Settings integration remains. Face HAL recovery and all
+hardware behavior still require a new ROM build and phone test.
+
+Google Camera **8.7.250.494820638.44** replaces Aperture with the exact original
+Google-signed base and nine common feature splits tested on Infinity-X Coral.
+Preparation downloads the three immutable chunks once and verifies every APK
+hash and the APK-set install group. --offline reuses that verified cache.
+Android compilation performs no Camera downloads. Existing Camera SELinux
+policy and product defaults are retained. If old Aperture output is present,
+build.sh runs installclean, preserving compiled intermediate objects. After
+compilation it checks the installed camera provider binary/init/VINTF and all
+ten original Camera APKs before reporting success.
 
 Build this branch with the usual `build.sh`. Let the resulting ROM attempt to
 boot for two to three minutes, enter recovery without formatting, then collect:
@@ -33,7 +48,8 @@ four approximately 192 KiB files; snapshots and stderr are bounded, Metadata
 must have at least 4 MiB free, and capture ends on boot completion or after five
 minutes. ZIP the pulled folder for analysis. This is a diagnostic build, not a
 verified fix for the startup failure. To return to the regular setup, switch the
-local manifest back to `main` and sync `device/google/coral` before rebuilding.
+local manifest back to `main` and sync the device, vendor and Motion Sense
+projects before rebuilding.
 
 Build setup for **Pixel 4 XL (`coral`)** using PixelOS `seventeen`, independent
 Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
@@ -43,12 +59,12 @@ Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
 
 | Checkout path | Repository | Revision |
 | --- | --- | --- |
-| `device/google/coral` | [PixelOS device copy](https://github.com/its-hecker/pixelos_android_device_google_coral) | pinned `de58ef98`, from `boot-diagnostics` |
-| `vendor/google/coral` | [PixelOS vendor copy](https://github.com/its-hecker/pixelos_proprietary_vendor_google_coral) | `main` |
+| `device/google/coral` | [PixelOS device copy](https://github.com/its-hecker/pixelos_android_device_google_coral) | pinned `df2f8ef8`, from `boot-diagnostics` |
+| `vendor/google/coral` | [PixelOS vendor copy](https://github.com/its-hecker/pixelos_proprietary_vendor_google_coral) | pinned `fc4a5b6b`, from `boot-diagnostics` |
 | `kernel/google/msm-4.14` | [CNB kernel](https://github.com/its-hecker/infinity_cnb_kernel_google_msm-4.14) | pinned `aaaa03e4`, from `cnb-Latest-stable` |
 | `packages/apps/ElmyraService` | [ElmyraService](https://github.com/LineageOS/android_packages_apps_ElmyraService) | pinned `baab2beb`, from `lineage-24.0` |
 | `vendor/lunaris/dolby` | [Lunaris Dolby](https://github.com/its-hecker/vendor_lunaris_dolby) | pinned `544e6271`, from `pixelos-compat` |
-| `vendor/hecker/floral/motionsense` | [Motion Sense plugin](https://github.com/its-hecker/floral-motionsense-plugin) | pinned `e66def12`, from `main` |
+| `vendor/hecker/floral/motionsense` | [Motion Sense plugin](https://github.com/its-hecker/floral-motionsense-plugin) | pinned `d924c6ed`, from `pixelos-compat` |
 | `vendor/hecker/floral/faceid` | [3D Face ID plugin](https://github.com/its-hecker/floral-3D-faceid-plugin) | pinned `96b7e58a`, from `main` |
 
 The old kernel branch `cnb` was renamed to `cnb-Latest-stable`. This setup uses
@@ -86,11 +102,12 @@ original filename retained through `stem`. This keeps its AIDL V1 dependencies
 separate from the newer AOSP source service. Device/vendor product entries and
 the blob extraction suffix select that module together. Preparation backs up
 and sets `no_full_install: true` on the AOSP eager camera service and its VINTF
-fragment, so Make receives one binary/manifest installer. The source service
-keeps its `init_rc` attachment: its script is byte-identical to Coral's stock
-script, and the redundant vendor `PRODUCT_COPY_FILES` entry is removed. Soong
-exports init scripts independently of `no_full_install`; integration checks both
-those exports and the resolved vendor/plugin Make copies. Other camera modules
+fragment, so Make receives one binary/manifest installer. The selected prebuilt
+owns its stock `init_rc` attachment. Preparation clears that attachment on the
+unused source service, and the redundant vendor PRODUCT_COPY_FILES entry stays
+removed. Integration checks the selected installer and rejects competing source
+or Make copies. After compilation, the script must also exist in the actual
+vendor output; source checks alone do not establish runtime packaging. Other camera modules
 and local source edits are preserved. The original Blueprint is saved
 under `out/floral-camera-install/`. If an older checkout
 reports camera metadata V1/V3 conflicts through `android.prebuiltDependencyTag`,
@@ -380,8 +397,8 @@ breakfast coral userdebug
 m pixelos
 ```
 
-`PIXEL_BUILD_JOBS=8` controls parallel build jobs. `PIXEL_BUILD_VARIANT=user` selects
-a production build when calling `build.sh`. `--offline` passed to the script
+`PIXEL_BUILD_JOBS=8` controls parallel build jobs. This diagnostic branch requires
+`PIXEL_BUILD_VARIANT=userdebug` or `eng`. `--offline` passed to the script
 uses previously cached, checksum-verified plugin binaries. The full Android
 build itself performs no plugin downloads.
 

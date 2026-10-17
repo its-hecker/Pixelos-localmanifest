@@ -18,6 +18,7 @@ vintf_fragment {
 }
 cc_binary {
     name: "android.hardware.camera.provider@2.7-service-google",
+    init_rc: ["android.hardware.camera.provider@2.7-service-google.rc"],
     defaults: ["hardware_camera_service_defaults"],
     // Keep this unrelated local change.
     cflags: ["-DLOCAL_CAMERA_CHANGE"],
@@ -33,7 +34,9 @@ class CameraInstallTests(unittest.TestCase):
     def test_only_the_eager_service_and_its_manifest_lose_full_installs(self):
         result = suppress_source_installs(FIXTURE)
         self.assertEqual(result.count(b"no_full_install: true,"), 2)
-        self.assertEqual(result.replace(b"    no_full_install: true,\n", b""), FIXTURE)
+        expected = FIXTURE.replace(b'init_rc: ["android.hardware.camera.provider@2.7-service-google.rc"]',
+                                   b'init_rc: []')
+        self.assertEqual(result.replace(b"    no_full_install: true,\n", b""), expected)
         self.assertEqual(suppress_source_installs(result), result)
 
     def test_crlf_and_an_existing_false_flag_are_preserved_except_the_boolean(self):

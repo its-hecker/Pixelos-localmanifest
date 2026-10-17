@@ -35,6 +35,17 @@ def suppress_source_installs(content):
             # The module's name is the first property in the checked upstream layout.
             end = block.index("\n", end) + 1
             replacement = block[:end] + "    no_full_install: true," + newline + block[end:]
+        if kind == "cc_binary":
+            # The selected -coral prebuilt must install its init script. Keeping
+            # it on this overridden source module produced no runtime service.
+            inits = list(re.finditer(r'(?m)^    init_rc:\s*(\[[^\]]*\]),[^\r\n]*', replacement))
+            if len(inits) != 1:
+                raise ValueError("Review the source camera init_rc before transferring ownership")
+            field = inits[0]
+            values = re.findall(r'"([^"]+)"', field.group(1))
+            if values not in ([], [SERVICE + ".rc"]):
+                raise ValueError("Review changed camera init_rc files before transferring ownership")
+            replacement = replacement[:field.start(1)] + "[]" + replacement[field.end(1):]
         text = text[:matches[0].start()] + replacement + text[matches[0].end():]
     return text.encode("utf-8")
 

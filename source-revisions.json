@@ -74,7 +74,8 @@
       "branch": "seventeen",
       "revision": "0d2ff0b8055eb745d36dfef3600a73f5185a4fff",
       "files": [
-        "overlay/common/"
+        "overlay/common/",
+        "config/common_mobile_full.mk"
       ]
     },
     "frameworks/base": {

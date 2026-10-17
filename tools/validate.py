@@ -96,15 +96,22 @@ def camera_prebuilt(rom):
 
 
 def camera_init(rom):
-    # Soong exports init_rc even when no_full_install suppresses the binary's
-    # legacy copy rule. Keep that installer and omit the duplicate Make copy.
+    # Attach startup to the selected prebuilt, so override/package filtering
+    # cannot drop the only init script with the unused source service.
     filename = CAMERA_SERVICE + ".rc"
     source_bp = rom / CAMERA_SOURCE
     block = re.search(r'(?ms)^cc_binary\s*\{\s*name:\s*"' +
                       re.escape(CAMERA_SERVICE) + r'",.*?^\}', source_bp.read_text())
-    require(block is not None and re.search(r'init_rc:\s*\[\s*"' +
-            re.escape(filename) + r'"\s*,?\s*\]', block.group()),
+    require(block is not None and re.search(r'init_rc:\s*\[(?:\s*"' +
+            re.escape(filename) + r'"\s*,?)?\s*\]', block.group()),
             "Review the AOSP camera init installer before building Coral")
+    vendor_bp = (rom / "vendor/google/coral/Android.bp").read_text()
+    selected = re.search(r'(?ms)^cc_prebuilt_binary\s*\{\s*name:\s*"' +
+                         re.escape(CAMERA_SERVICE + "-coral") + r'",.*?^\}', vendor_bp)
+    relative = "proprietary/vendor/etc/init/" + filename
+    require(selected is not None and re.search(r'init_rc:\s*\[\s*"' +
+            re.escape(relative) + r'"\s*,?\s*\]', selected.group()),
+            "Sync vendor/google/coral: the selected camera prebuilt must install its init script")
     stock = rom / "vendor/google/coral/proprietary/vendor/etc/init" / filename
     require((source_bp.parent / filename).read_bytes() == stock.read_bytes(),
             "AOSP camera init differs from Coral's stock script; review startup configuration")
@@ -183,6 +190,27 @@ def motion_permissions(rom):
             "Review Motion Sense app partition before installing its permission allowlist")
 
 
+def hardware_setup(rom):
+    device = rom / "device/google/coral"
+    product = (device / "custom_coral.mk").read_text()
+    flag = "PRODUCT_NO_CAMERA := true"
+    require(flag in product and product.index(flag) < product.index(
+            "$(call inherit-product, vendor/custom/config/common_full_phone.mk)"),
+            "Disable the inherited Aperture package before PixelOS common inheritance")
+    require("$(call inherit-product, device/google/coral/camera/camera.mk)" in product,
+            "Google Camera product configuration is missing")
+    policy = (device / "sepolicy/vendor/google/vendor_init.te").read_text()
+    require("set_prop(vendor_init, vendor_aware_available_prop)" in policy,
+            "Motion Sense capability cannot be published by vendor_init")
+    settings = ET.parse(rom / "vendor/hecker/floral/motionsense/settings/AndroidManifest.xml").getroot()
+    android = "{http://schemas.android.com/apk/res/android}"
+    names = {node.get(android + "name") for node in settings.findall(".//action")}
+    categories = {node.get(android + "name") for node in settings.findall(".//category")}
+    require("com.android.settings.action.IA_SETTINGS" in names and
+            "android.intent.category.LAUNCHER" not in categories,
+            "Motion Sense must retain its Settings entry without a launcher duplicate")
+
+
 def source(rom):
     required = [
         "device/google/coral/custom_coral.mk", "device/google/coral/BoardConfig-common.mk",
@@ -208,6 +236,7 @@ def source(rom):
     camera_prebuilt(rom)
     replaced_vendor_installers(rom)
     motion_permissions(rom)
+    hardware_setup(rom)
     require(configure_face_init(rom) == "already configured",
             "Run build.sh preparation to register the HIDL Face sensor before connecting its HAL")
     require(configure_camera(rom) == "already configured",

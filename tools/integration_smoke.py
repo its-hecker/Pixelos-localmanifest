@@ -56,9 +56,13 @@ def check_product_make(rom):
     face = "vendor/hecker/floral/faceid"
     source = "\n".join([
         "TARGET_COPY_OUT_VENDOR := vendor",
+        "TARGET_COPY_OUT_PRODUCT := product",
+        "PRODUCT_NO_CAMERA := true",
         "PRODUCT_PACKAGES := KeepMe android.hardware.biometrics.face@1.0-service.google OsloFeedback",
         "PRODUCT_COPY_FILES := keep:vendor/etc/keep",
         "include vendor/google/coral/coral-vendor.mk",
+        "include vendor/lineage/config/common_mobile_full.mk",
+        "include device/google/coral/camera/camera.mk",
         "include " + motion + "/motionsense.mk",
         "include " + face + "/faceid.mk",
         "include " + motion + "/BoardConfigMotionSense.mk",
@@ -81,6 +85,8 @@ def check_product_make(rom):
     require(motion in namespaces and face in namespaces, "Plugin Soong namespaces are missing")
     require({"KeepMe", "FloralOsloFeedback", "FloralFaceIDHal", "FloralFaceIDManifest"} <=
             set(packages), "Prepared plugin packages are missing")
+    require("GoogleCameraCoral" in packages and "Aperture" not in packages,
+            "Google Camera must replace Aperture in the resolved PixelOS product")
     require(not {"android.hardware.biometrics.face@1.0-service.google", "OsloFeedback"} &
             set(packages), "Replaced stock plugin packages were retained")
     require({"libbase-v33", "libcrypto-v33", "libstagefright_foundation-v33"} <= set(packages) and
@@ -94,8 +100,8 @@ def check_product_make(rom):
     owners = init_installers(rom, copies)
     camera_destination = "vendor/etc/init/" + CAMERA_SERVICE + ".rc"
     require(owners.get(camera_destination) == {
-            "Soong:" + str(Path(CAMERA_SOURCE).parent / (CAMERA_SERVICE + ".rc"))},
-            "The camera init script must have its single Soong installer")
+            "Soong:vendor/google/coral/proprietary/vendor/etc/init/" + CAMERA_SERVICE + ".rc"},
+            "The selected camera prebuilt must own the sole init script installer")
     # Restore the actual Make entry from the failed build: the source binary's
     # no_full_install flag must not hide this duplicate from the audit.
     duplicate = ("vendor/google/coral/proprietary/vendor/etc/init/" + CAMERA_SERVICE +

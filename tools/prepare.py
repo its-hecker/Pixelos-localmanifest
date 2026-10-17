@@ -10,8 +10,9 @@ import sys
 import xml.etree.ElementTree as ET
 
 from camera_install import configure as configure_camera, SOURCE as CAMERA_SOURCE
-from validate import camera_prebuilt, replaced_vendor_installers, motion_permissions
+from validate import camera_prebuilt, replaced_vendor_installers, motion_permissions, hardware_setup
 from face_init import configure as configure_face_init
+from google_camera import prepare as prepare_google_camera
 
 
 OVERLAY_ROOTS = [
@@ -72,6 +73,7 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
     camera_prebuilt(rom)
     replaced_vendor_installers(rom)
     motion_permissions(rom)
+    hardware_setup(rom)
     configure_face_init(rom)  # Refuse unknown startup methods before any source patch.
     # Keep source modules available for dependencies, but export only the
     # selected stock prebuilt's full install rules to Make.
@@ -98,6 +100,7 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
     run(rom, face, "prepare.py", *face_arguments)
     for plugin in [motion, face]:
         run(rom, plugin, "verify_ready.py")
+    prepare_google_camera(rom, offline=offline)
     print("PixelOS Floral plugin preparation passed.")
     print("Motion allowlist overlays:", *[str(p.relative_to(rom)) for p in motion_files], sep="\n  ")
     print("Face sensor overlays:", *[str(p.relative_to(rom)) for p in face_files], sep="\n  ")

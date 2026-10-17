@@ -32,4 +32,18 @@ python3 "$floral_setup_dir/tools/prepare.py" "$@"
 python3 "$floral_setup_dir/tools/validate.py" --rom-root "$PWD"
 source build/envsetup.sh
 breakfast coral "${PIXEL_BUILD_VARIANT:-userdebug}"
+floral_product_out="$(get_build_var PRODUCT_OUT)"
+floral_stale_aperture=false
+for floral_partition in system system_ext product vendor; do
+    for floral_app_type in app priv-app; do
+        if [[ -d "$floral_product_out/$floral_partition/$floral_app_type/Aperture" ]]; then
+            floral_stale_aperture=true
+        fi
+    done
+done
+if [[ "$floral_stale_aperture" == true ]]; then
+    echo "Removing the previous Aperture installation from build outputs (installclean)."
+    m installclean
+fi
 m -j"${PIXEL_BUILD_JOBS:-$(nproc)}" pixelos
+python3 "$floral_setup_dir/tools/check_built_output.py" "$floral_product_out"
