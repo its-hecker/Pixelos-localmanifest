@@ -1,6 +1,6 @@
 # PixelOS Android 17 for Pixel 4 XL
 
-The maintainer confirmed the previous `boot-diagnostics` Coral build boots.
+The previous `boot-diagnostics` Coral build boots.
 This branch now targets the remaining camera, Face ID and Motion Sense failures
 and selects the tested Google Camera 8.7 package. Device/vendor and Motion Sense
 compatibility pins match the fixes; the kernel and Face ID plugin are retained.
