@@ -87,7 +87,10 @@
         "services/core/java/com/android/server/biometrics/sensors/face/hidl/HidlToAidlSessionAdapter.java",
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceEnrollClient.java",
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java",
-        "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlConversionUtils.java"
+        "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlConversionUtils.java",
+        "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java",
+        "services/core/java/com/android/server/biometrics/sensors/face/hidl/HidlToAidlSensorAdapter.java",
+        "services/core/java/com/android/server/biometrics/sensors/SensorList.java"
       ]
     },
     "hardware/google/camera": {

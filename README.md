@@ -8,6 +8,18 @@ The capture starts at `early-fs` and writes bounded logs under
 It requires a `userdebug` or `eng` build and uses the existing AOSP debug domain.
 It does not enable unauthenticated ADB or change global SELinux enforcement.
 
+The October 17 Android capture now identifies two framework boot failures:
+FloralMotionSenseSettings lacks the WRITE_SECURE_SETTINGS privileged permission
+allowlist entry, and the HIDL Face provider can run cleanup before registering
+its sensor. The matching device pin installs that one permission under
+system_ext/etc/permissions. Preparation backs up FaceProvider.java and changes
+only its reviewed HIDL registration method, publishing the new sensor before
+the lazy HAL connection can schedule cleanup. User switching and reconnect
+cleanup are retained. Unfamiliar source methods or contracts are refused.
+The native Face HAL also crashed during this dirty flash over stock Android 13;
+that failure is not claimed fixed. A fresh ROM build and clean-install phone
+test are still required. Keep the boot capture for any remaining failure.
+
 Build this branch with the usual `build.sh`. Let the resulting ROM attempt to
 boot for two to three minutes, enter recovery without formatting, then collect:
 
@@ -31,7 +43,7 @@ Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
 
 | Checkout path | Repository | Revision |
 | --- | --- | --- |
-| `device/google/coral` | [PixelOS device copy](https://github.com/its-hecker/pixelos_android_device_google_coral) | pinned `22c7fbaa`, from `boot-diagnostics` |
+| `device/google/coral` | [PixelOS device copy](https://github.com/its-hecker/pixelos_android_device_google_coral) | pinned `de58ef98`, from `boot-diagnostics` |
 | `vendor/google/coral` | [PixelOS vendor copy](https://github.com/its-hecker/pixelos_proprietary_vendor_google_coral) | `main` |
 | `kernel/google/msm-4.14` | [CNB kernel](https://github.com/its-hecker/infinity_cnb_kernel_google_msm-4.14) | pinned `aaaa03e4`, from `cnb-Latest-stable` |
 | `packages/apps/ElmyraService` | [ElmyraService](https://github.com/LineageOS/android_packages_apps_ElmyraService) | pinned `baab2beb`, from `lineage-24.0` |
@@ -107,7 +119,7 @@ Create and enter a separate PixelOS build directory:
 mkdir -p ~/pixelos
 cd ~/pixelos
 repo init -u https://github.com/PixelOS-AOSP/android_manifest.git -b seventeen --git-lfs
-git clone https://github.com/its-hecker/Pixelos-localmanifest.git .repo/local_manifests
+git clone -b boot-diagnostics https://github.com/its-hecker/Pixelos-localmanifest.git .repo/local_manifests
 repo sync -c -j8
 ```
 

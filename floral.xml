@@ -12,7 +12,7 @@
   <remove-project path="vendor/hecker/floral/faceid" optional="true" />
 
   <project name="its-hecker/pixelos_android_device_google_coral"
-           path="device/google/coral" remote="floral-github" revision="22c7fbaa03f55ad11872f7d38e50b035642eb575"
+           path="device/google/coral" remote="floral-github" revision="de58ef986202e6aa1ec255e24c0ecaa610e4c686"
            upstream="refs/heads/boot-diagnostics" dest-branch="boot-diagnostics" />
   <project name="its-hecker/pixelos_proprietary_vendor_google_coral"
            path="vendor/google/coral" remote="floral-github" revision="main" />

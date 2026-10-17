@@ -10,7 +10,8 @@ import sys
 import xml.etree.ElementTree as ET
 
 from camera_install import configure as configure_camera, SOURCE as CAMERA_SOURCE
-from validate import camera_prebuilt, replaced_vendor_installers
+from validate import camera_prebuilt, replaced_vendor_installers, motion_permissions
+from face_init import configure as configure_face_init
 
 
 OVERLAY_ROOTS = [
@@ -70,11 +71,14 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
         raise ValueError("Disable PixelOS ParanoidSense before using the IR Face HAL")
     camera_prebuilt(rom)
     replaced_vendor_installers(rom)
+    motion_permissions(rom)
+    configure_face_init(rom)  # Refuse unknown startup methods before any source patch.
     # Keep source modules available for dependencies, but export only the
     # selected stock prebuilt's full install rules to Make.
     print("Coral camera install ownership:", configure_camera(rom, write=True))
     # Refuse unfamiliar framework methods before making any framework changes.
     run(rom, face, "apply_framework_fixes.py", "--rom-root", rom, "--check")
+    print("PixelOS HIDL Face startup:", configure_face_init(rom, write=True))
     fetch_arguments = ["--verify-only"] if offline else []
     for plugin in [motion, face]:
         run(rom, plugin, "fetch_prebuilts.py", *fetch_arguments)

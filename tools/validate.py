@@ -11,6 +11,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 from camera_install import configure as configure_camera, SOURCE as CAMERA_SOURCE, SERVICE as CAMERA_SERVICE
+from face_init import configure as configure_face_init
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -161,6 +162,27 @@ def replaced_vendor_installers(rom):
                 "Sync vendor/google/coral: suppress the replaced stock install rule for " + name)
 
 
+def motion_permissions(rom):
+    relative = "device/google/coral/configs/permissions/privapp-permissions-floral-motionsense.xml"
+    destination = "$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/permissions/privapp-permissions-floral-motionsense.xml"
+    product = (rom / "device/google/coral/custom_coral.mk").read_text()
+    require(product.count(relative + ":" + destination) == 1,
+            "Sync device/google/coral: Motion Sense permission XML must install once on system_ext")
+    manifest = ET.parse(rom / "vendor/hecker/floral/motionsense/settings/AndroidManifest.xml").getroot()
+    allowlist = ET.parse(rom / relative).getroot()
+    package = manifest.get("package")
+    entries = allowlist.findall("privapp-permissions")
+    require(len(entries) == 1 and package == "org.hecker.floral.motionsense" and
+            entries[0].get("package") == package,
+            "Motion Sense permission allowlist does not match the installed package")
+    granted = {node.get("name") for node in entries[0].findall("permission")}
+    require(granted == {"android.permission.WRITE_SECURE_SETTINGS"},
+            "Motion Sense needs exactly its WRITE_SECURE_SETTINGS privileged allowlist entry")
+    settings = (rom / "vendor/hecker/floral/motionsense/settings/Android.bp.in").read_text()
+    require("system_ext_specific: true" in settings and "privileged: true" in settings,
+            "Review Motion Sense app partition before installing its permission allowlist")
+
+
 def source(rom):
     required = [
         "device/google/coral/custom_coral.mk", "device/google/coral/BoardConfig-common.mk",
@@ -185,6 +207,9 @@ def source(rom):
     device = rom / "device/google/coral"
     camera_prebuilt(rom)
     replaced_vendor_installers(rom)
+    motion_permissions(rom)
+    require(configure_face_init(rom) == "already configured",
+            "Run build.sh preparation to register the HIDL Face sensor before connecting its HAL")
     require(configure_camera(rom) == "already configured",
             "Run build.sh preparation to select the stock camera install rules")
     product = (device / "custom_coral.mk").read_text()

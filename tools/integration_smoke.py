@@ -343,6 +343,8 @@ def test(rom, fetch=True):
             content = backup[0].read_bytes()
         (references / name).write_bytes(content)
     prepare(rom, offline=not fetch)
+    subprocess.run([sys.executable, str(ROOT / "tests/check_face_init.py"),
+                    "--rom-root", str(rom)], cwd=rom, check=True)
     first = profiles(rom)
     prepare(rom, offline=True)
     require(profiles(rom) == first, "Repeated setup changed generated outputs")
