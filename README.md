@@ -404,6 +404,14 @@ disables all KernelSU and SUSFS options, and uses PixelOS's normal boot image
 packaging and locally configured signing settings. Keep the provider's RBE
 environment as usual.
 
+For an absolute output path, the helper also applies a guarded fix to
+`build/soong/ci_tests/ci_test_package_zip.go`. The old host-file filter assumes
+output paths start with `out`, which makes Soong try to stage host tools such as
+Perfetto inside a device test package. The fix checks whether each installed
+file is inside the product output directory using `android.MaybeRel`. The first
+original source is saved under `out-noksu/source-backups/`; reruns preserve that
+backup and an unfamiliar source implementation is refused.
+
 The exported image is `out-noksu/PixelOS-coral-noKSU-boot.img`, with a SHA256 file
 and JSON verification report beside it. Export requires the compiled image's
 embedded configuration to show KernelSU disabled, no unrelated config changes,

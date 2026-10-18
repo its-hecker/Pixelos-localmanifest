@@ -20,6 +20,15 @@ IMAGE = "PixelOS-coral-noKSU-boot.img"
 KERNEL_OBJ = "obj/KERNEL_OBJ"
 KERNEL_IMAGE = "arch/arm64/boot/Image.lz4"
 KSU_OPTION = re.compile(r"^(?:# )?(CONFIG_KSU(?:_\w+)?)(?:=| is not set)")
+SOONG_TEST_PACKAGE = "build/soong/ci_tests/ci_test_package_zip.go"
+SOONG_OLD_HOST_FILTER = '''\t\tf := strings.TrimPrefix(installedFile.String(), productOut+"/")
+\t\tif strings.HasPrefix(f, "out") {
+\t\t\tcontinue
+\t\t}'''
+SOONG_NEW_HOST_FILTER = '''\t\tf, inProductOut := android.MaybeRel(ctx, productOut, installedFile.String())
+\t\tif !inProductOut {
+\t\t\tcontinue
+\t\t}'''
 
 
 def require(condition, message):
@@ -174,6 +183,25 @@ def baseline_out(rom, environment):
     return (rom / path).resolve()
 
 
+def prepare_soong_host_paths(rom, output):
+    """Keep host tools out of device test staging for an absolute OUT_DIR."""
+    source = rom / SOONG_TEST_PACKAGE
+    require(source.is_file(), "Missing Soong test-package source: " + str(source))
+    original = source.read_bytes()
+    text = original.decode("utf-8")
+    if text.count(SOONG_NEW_HOST_FILTER) == 1 and SOONG_OLD_HOST_FILTER not in text:
+        return "already applied"
+    require(text.count(SOONG_OLD_HOST_FILTER) == 1 and SOONG_NEW_HOST_FILTER not in text,
+            "Unfamiliar Soong test-package host path filter; refusing to patch " + str(source))
+    backup = output / "source-backups" / SOONG_TEST_PACKAGE
+    backup.parent.mkdir(parents=True, exist_ok=True)
+    # Keep the first original copy if this helper is resumed.
+    if not backup.exists():
+        backup.write_bytes(original)
+    source.write_bytes(text.replace(SOONG_OLD_HOST_FILTER, SOONG_NEW_HOST_FILTER, 1).encode("utf-8"))
+    return "applied (original saved in " + str(backup) + ")"
+
+
 def verify(rom, baseline, product):
     old_obj, new_obj = baseline / KERNEL_OBJ, product / KERNEL_OBJ
     old_parts, new_parts = boot_parts(baseline / "boot.img"), boot_parts(product / "boot.img")
@@ -254,6 +282,7 @@ def build(rom, base_out, output, jobs):
             state.write_text(json.dumps(identity, indent=2) + "\n")
         fragment = output / "coral-noksu.config"
         fragment.write_text(no_ksu_config(config))
+        print("Soong absolute-output host path fix: " + prepare_soong_host_paths(rom, output), flush=True)
         environment = os.environ.copy()
         environment.update(OUT_DIR=str(output), TARGET_KERNEL_CONFIG_EXT=str(fragment),
                            PIXEL_NOKSU_FRAGMENT=str(fragment), PIXEL_BUILD_JOBS=str(jobs))

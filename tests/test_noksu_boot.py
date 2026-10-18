@@ -204,6 +204,9 @@ class NoKsuTests(unittest.TestCase):
         (self.rom / ".repo").mkdir()
         (self.rom / "build").mkdir()
         (self.rom / "build/envsetup.sh").touch()
+        source = self.rom / noksu.SOONG_TEST_PACKAGE
+        source.parent.mkdir(parents=True)
+        source.write_text("// unrelated source is preserved\n" + noksu.SOONG_OLD_HOST_FILTER + "\n")
         self.base = self.rom / "out"
         self.output = self.rom / "out-noksu"
         product = self.base / "target/product/coral"
@@ -245,6 +248,7 @@ class NoKsuTests(unittest.TestCase):
         def run(command, **kwargs):
             self.assertEqual(command[:2], ["bash", "-c"])
             env = kwargs["env"]
+            self.assertIn(noksu.SOONG_NEW_HOST_FILTER, (self.rom / noksu.SOONG_TEST_PACKAGE).read_text())
             self.assertEqual(env["OUT_DIR"], str(self.output))
             self.assertEqual(env["TARGET_KERNEL_ADDITIONAL_FLAGS"], "-j8")
             fragment = Path(env["TARGET_KERNEL_CONFIG_EXT"]).read_text()
@@ -259,6 +263,29 @@ class NoKsuTests(unittest.TestCase):
         image = self.output / noksu.IMAGE
         self.assertTrue(image.is_file())
         self.assertIn(noksu.sha256(image), image.with_suffix(".img.sha256").read_text())
+
+    def test_soong_fix_preserves_source_and_backup_when_resumed(self):
+        self.stage()
+        source = self.rom / noksu.SOONG_TEST_PACKAGE
+        original = source.read_bytes()
+        result = noksu.prepare_soong_host_paths(self.rom, self.output)
+        self.assertTrue(result.startswith("applied"))
+        expected = original.replace(noksu.SOONG_OLD_HOST_FILTER.encode(), noksu.SOONG_NEW_HOST_FILTER.encode())
+        self.assertEqual(source.read_bytes(), expected)
+        backup = self.output / "source-backups" / noksu.SOONG_TEST_PACKAGE
+        self.assertEqual(backup.read_bytes(), original)
+        self.assertEqual(noksu.prepare_soong_host_paths(self.rom, self.output), "already applied")
+        self.assertEqual(source.read_bytes(), expected)
+        self.assertEqual(backup.read_bytes(), original)
+
+    def test_soong_fix_rejects_unknown_source_without_writing(self):
+        self.stage()
+        source = self.rom / noksu.SOONG_TEST_PACKAGE
+        source.write_text("// different upstream implementation\n")
+        with self.assertRaisesRegex(ValueError, "Unfamiliar Soong"):
+            noksu.prepare_soong_host_paths(self.rom, self.output)
+        self.assertEqual(source.read_text(), "// different upstream implementation\n")
+        self.assertFalse((self.output / "source-backups").exists())
 
     def test_verification_rejects_a_rooted_kernel_in_the_new_boot(self):
         product = self.stage()
