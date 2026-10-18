@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Apply local PixelOS Coral camera-app and HIDL Face callback fixes.
+"""Apply local PixelOS Coral camera-app, Face callback and Motion Sense fixes.
 
 Run from ~/pixelos with --apply. Without --apply, this only checks the sources.
 Every original is backed up under out/pixelos-followup-backups before any edit.
@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import os
 from pathlib import Path
+import re
 import stat
 import tempfile
 
@@ -46,6 +47,15 @@ PATCHES = [{'after': 'android_app_set {\n'
             "# Privileged permissions must be allowlisted on the app's own partition.\n"
             'PRODUCT_COPY_FILES += \\\n',
   'path': 'device/google/coral/custom_coral.mk'},
+ {'after': '# Video\n'
+           'vidc.enc.dcvs.extra-buff-count=2\n'
+           'vidc.enc.disable.pq=1\n'
+           '\n'
+           '# Motion Sense (Oslo): use the country override from the working Floral port.\n'
+           'pixel.oslo.allowed_override=1\n',
+  'before': '# Video\nvidc.enc.dcvs.extra-buff-count=2\nvidc.enc.disable.pq=1\n',
+  'path': 'device/google/coral/product.prop',
+  'unique_property': 'pixel.oslo.allowed_override'},
  {'after': 'source build/envsetup.sh\n'
            'breakfast coral "${PIXEL_BUILD_VARIANT:-userdebug}"\n'
            'floral_product_out="$(get_build_var PRODUCT_OUT)"\n'
@@ -132,6 +142,89 @@ PATCHES = [{'after': 'android_app_set {\n'
             '    require("set_prop(vendor_init, vendor_aware_available_prop)" in policy,\n'
             '            "Motion Sense capability cannot be published by vendor_init")\n',
   'path': '.repo/local_manifests/tools/validate.py'},
+ {'after': '    require("com.android.settings.action.IA_SETTINGS" in names and\n'
+           '            "android.intent.category.LAUNCHER" not in categories,\n'
+           '            "Motion Sense must retain its Settings entry without a launcher '
+           'duplicate")\n'
+           '    oslo_country_override = '
+           're.findall(r"(?m)^\\s*pixel\\.oslo\\.allowed_override\\s*=\\s*(\\S+)\\s*$",\n'
+           '                                      (device / "product.prop").read_text())\n'
+           '    require(oslo_country_override == ["1"],\n'
+           '            "Motion Sense needs exactly one pixel.oslo.allowed_override=1 product '
+           'property")\n'
+           '\n'
+           '\n'
+           'def source(rom):\n',
+  'before': '    require("com.android.settings.action.IA_SETTINGS" in names and\n'
+            '            "android.intent.category.LAUNCHER" not in categories,\n'
+            '            "Motion Sense must retain its Settings entry without a launcher '
+            'duplicate")\n'
+            '\n'
+            '\n'
+            'def source(rom):\n',
+  'path': '.repo/local_manifests/tools/validate.py'},
+ {'after': '#!/usr/bin/env python3\n'
+           '# SPDX-License-Identifier: Apache-2.0\n'
+           '"""Check installed camera files, original APKs and the Motion Sense country '
+           'override."""\n'
+           '\n'
+           'from pathlib import Path\n'
+           'import re\n'
+           'import sys\n'
+           '\n'
+           'from camera_install import SERVICE\n'
+           'from google_camera import verify_installed\n'
+           '\n'
+           '\n'
+           'def check_motion_sense(output):\n'
+           '    paths = [output / "product/etc/build.prop", output / "product/build.prop"]\n'
+           '    properties = next((path for path in paths if path.is_file()), None)\n'
+           '    if properties is None:\n'
+           '        raise ValueError("Built product image is missing Motion Sense\'s product '
+           'properties")\n'
+           '    values = '
+           're.findall(r"(?m)^\\s*pixel\\.oslo\\.allowed_override\\s*=\\s*(\\S+)\\s*$",\n'
+           '                        properties.read_text())\n'
+           '    if values != ["1"]:\n'
+           '        raise ValueError("Built product image needs exactly one '
+           'pixel.oslo.allowed_override=1")\n'
+           '\n'
+           '\n'
+           'def check(rom, output):\n',
+  'before': '#!/usr/bin/env python3\n'
+            '# SPDX-License-Identifier: Apache-2.0\n'
+            '"""Check the installed camera startup files and unchanged Google Camera APKs."""\n'
+            '\n'
+            'from pathlib import Path\n'
+            'import sys\n'
+            '\n'
+            'from camera_install import SERVICE\n'
+            'from google_camera import verify_installed\n'
+            '\n'
+            '\n'
+            'def check(rom, output):\n',
+  'path': '.repo/local_manifests/tools/check_built_output.py'},
+ {'after': '    if not (output / "vendor/etc/vintf/manifest" / (SERVICE + ".xml")).is_file():\n'
+           '        raise ValueError("Built vendor image is missing the camera VINTF '
+           'declaration")\n'
+           '    verify_installed(rom, output)\n'
+           '    check_motion_sense(output)\n'
+           '    print("Built output: camera provider binary/init/VINTF, original ten-APK Google '
+           'Camera set "\n'
+           '          "and Motion Sense country override: PASS")\n'
+           '\n'
+           '\n'
+           'if __name__ == "__main__":\n',
+  'before': '    if not (output / "vendor/etc/vintf/manifest" / (SERVICE + ".xml")).is_file():\n'
+            '        raise ValueError("Built vendor image is missing the camera VINTF '
+            'declaration")\n'
+            '    verify_installed(rom, output)\n'
+            '    print("Built output: camera provider binary/init/VINTF and original ten-APK '
+            'Google Camera set: PASS")\n'
+            '\n'
+            '\n'
+            'if __name__ == "__main__":\n',
+  'path': '.repo/local_manifests/tools/check_built_output.py'},
  {'after': '    private FaceUpdateActiveUserClient getFaceUpdateActiveUserClient(int userId) {\n'
            '        return new FaceUpdateActiveUserClient(getContext(), () -> {\n'
            '                    // Register the HIDL callback before the HAL activates a user.\n'
@@ -172,10 +265,17 @@ def prepare(root):
         newline = "\r\n" if b"\r\n" in content else "\n"
         before = patch["before"].replace("\n", newline).encode()
         after = patch["after"].replace("\n", newline).encode()
-        if content.count(after) == 1 and content.count(before) == 0:
+        property_name = patch.get("unique_property")
+        property_values = re.findall(r"(?m)^[ \t]*" + re.escape(property_name) + r"[ \t]*=(.*)$",
+                                     content.decode()) if property_name else []
+        if content.count(after) == 1 and content.count(before) == after.count(before):
+            if property_name and [value.strip() for value in property_values] != ["1"]:
+                raise ValueError("Review duplicate Motion Sense property: " + patch["path"])
             continue
         if content.count(before) != 1 or content.count(after) != 0:
             raise ValueError("Review changed source before applying fix: " + patch["path"])
+        if property_values:
+            raise ValueError("Review existing Motion Sense property before applying fix: " + patch["path"])
         planned[path][1] = content.replace(before, after, 1)
     return [(path, original, updated) for path, (original, updated) in planned.items()
             if original != updated]
@@ -219,11 +319,11 @@ def main():
     try:
         planned = prepare(root)
         if not planned:
-            print("All camera-app and Face callback fixes are already applied.")
+            print("All camera-app, Face callback and Motion Sense fixes are already applied.")
         elif args.apply:
             apply(root, planned)
             print("Fixes applied. Originals saved under out/pixelos-followup-backups.")
-            print("Run the normal userdebug build.sh to rebuild and check the camera output.")
+            print("Run the normal userdebug build.sh to rebuild and check the camera and Motion Sense output.")
         else:
             for path, original, updated in planned:
                 print("Would update:", path.relative_to(root))
