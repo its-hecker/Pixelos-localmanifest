@@ -11,7 +11,6 @@ import sys
 import xml.etree.ElementTree as ET
 
 from camera_install import configure as configure_camera, SOURCE as CAMERA_SOURCE, SERVICE as CAMERA_SERVICE
-from face_init import configure as configure_face_init
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -170,13 +169,16 @@ def replaced_vendor_installers(rom):
 
 
 def motion_permissions(rom):
-    relative = "device/google/coral/configs/permissions/privapp-permissions-floral-motionsense.xml"
-    destination = "$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/permissions/privapp-permissions-floral-motionsense.xml"
-    product = (rom / "device/google/coral/custom_coral.mk").read_text()
-    require(product.count(relative + ":" + destination) == 1,
-            "Sync device/google/coral: Motion Sense permission XML must install once on system_ext")
-    manifest = ET.parse(rom / "vendor/hecker/floral/motionsense/settings/AndroidManifest.xml").getroot()
-    allowlist = ET.parse(rom / relative).getroot()
+    plugin = rom / "vendor/hecker/floral/motionsense"
+    bp = (plugin / "Android.bp.in").read_text()
+    blocks = re.findall(r'(?ms)^prebuilt_etc\s*\{\s*name:\s*"FloralMotionSensePrivappPermissions",.*?^\}', bp)
+    required = ['src: "configs/privapp-permissions-floral-motionsense.xml"',
+                'filename: "privapp-permissions-floral-motionsense.xml"',
+                'sub_dir: "permissions"', 'system_ext_specific: true']
+    require(len(blocks) == 1 and all(value in blocks[0] for value in required),
+            "Motion Sense plugin permission XML must install once on system_ext")
+    manifest = ET.parse(plugin / "settings/AndroidManifest.xml").getroot()
+    allowlist = ET.parse(plugin / "configs/privapp-permissions-floral-motionsense.xml").getroot()
     package = manifest.get("package")
     entries = allowlist.findall("privapp-permissions")
     require(len(entries) == 1 and package == "org.hecker.floral.motionsense" and
@@ -185,8 +187,9 @@ def motion_permissions(rom):
     granted = {node.get("name") for node in entries[0].findall("permission")}
     require(granted == {"android.permission.WRITE_SECURE_SETTINGS"},
             "Motion Sense needs exactly its WRITE_SECURE_SETTINGS privileged allowlist entry")
-    settings = (rom / "vendor/hecker/floral/motionsense/settings/Android.bp.in").read_text()
-    require("system_ext_specific: true" in settings and "privileged: true" in settings,
+    settings = (plugin / "settings/Android.bp.in").read_text()
+    require("system_ext_specific: true" in settings and "privileged: true" in settings and
+            'required: ["FloralMotionSensePrivappPermissions"]' in settings,
             "Review Motion Sense app partition before installing its permission allowlist")
 
 
@@ -199,6 +202,12 @@ def hardware_setup(rom):
             "Disable the inherited Aperture package before PixelOS common inheritance")
     require("$(call inherit-product, device/google/coral/camera/camera.mk)" in product,
             "Google Camera product configuration is missing")
+    camera = (device / "camera/Android.bp").read_text()
+    sets = re.findall(r'(?ms)^android_app_set\s*\{\s*name:\s*"GoogleCameraCoral",.*?^\}', camera)
+    require(len(sets) == 1, "GoogleCameraCoral must have one APK-set module")
+    overrides = re.findall(r'(?s)\boverrides:\s*\[([^\]]*)\]', sets[0])
+    require(len(overrides) == 1 and set(re.findall(r'"([^"]+)"', overrides[0])) == {"Aperture", "Camera2"},
+            "GoogleCameraCoral must replace both Aperture and AOSP Camera2")
     policy = (device / "sepolicy/vendor/google/vendor_init.te").read_text()
     require("set_prop(vendor_init, vendor_aware_available_prop)" in policy,
             "Motion Sense capability cannot be published by vendor_init")
@@ -209,6 +218,10 @@ def hardware_setup(rom):
     require("com.android.settings.action.IA_SETTINGS" in names and
             "android.intent.category.LAUNCHER" not in categories,
             "Motion Sense must retain its Settings entry without a launcher duplicate")
+    oslo_country_override = re.findall(r"(?m)^\s*pixel\.oslo\.allowed_override\s*=\s*(\S+)\s*$",
+                                      (device / "product.prop").read_text())
+    require(oslo_country_override == ["1"],
+            "Motion Sense needs exactly one pixel.oslo.allowed_override=1 product property")
 
 
 def source(rom):
@@ -237,8 +250,11 @@ def source(rom):
     replaced_vendor_installers(rom)
     motion_permissions(rom)
     hardware_setup(rom)
-    require(configure_face_init(rom) == "already configured",
-            "Run build.sh preparation to register the HIDL Face sensor before connecting its HAL")
+    face_check = subprocess.run([sys.executable, str(rom / "vendor/hecker/floral/faceid/tools/apply_framework_fixes.py"),
+                                 "--rom-root", str(rom), "--check"], text=True, capture_output=True)
+    require(face_check.returncode == 0 and "already applied" in face_check.stdout,
+            "Run build.sh preparation to apply all HIDL Face startup/enrollment fixes: " +
+            face_check.stdout + face_check.stderr)
     require(configure_camera(rom) == "already configured",
             "Run build.sh preparation to select the stock camera install rules")
     product = (device / "custom_coral.mk").read_text()

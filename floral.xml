@@ -12,11 +12,11 @@
   <remove-project path="vendor/hecker/floral/faceid" optional="true" />
 
   <project name="its-hecker/pixelos_android_device_google_coral"
-           path="device/google/coral" remote="floral-github" revision="df2f8ef89f8e02d789f07d7b16b9ffe183e93f50"
-           upstream="refs/heads/boot-diagnostics" dest-branch="boot-diagnostics" />
+           path="device/google/coral" remote="floral-github" revision="86de5f048b6f1a3ba3ef723aee2b9446dd872601"
+           upstream="refs/heads/main" dest-branch="main" />
   <project name="its-hecker/pixelos_proprietary_vendor_google_coral"
            path="vendor/google/coral" remote="floral-github" revision="fc4a5b6b20c40954c2ad99d543f8c1e61e86d03a"
-           upstream="refs/heads/boot-diagnostics" dest-branch="boot-diagnostics" />
+           upstream="refs/heads/main" dest-branch="main" />
 
   <!-- cnb was renamed to cnb-Latest-stable. Preserve its KernelSU submodule. -->
   <project name="its-hecker/infinity_cnb_kernel_google_msm-4.14"
@@ -34,13 +34,13 @@
            revision="544e6271c955e2bf450c8481ac1e71551cb5a800"
            upstream="refs/heads/pixelos-compat" dest-branch="pixelos-compat" />
 
-  <!-- Test the standalone plugins, with their own immutable prebuilt locks. -->
+  <!-- Validated standalone plugins, with their own immutable prebuilt locks. -->
   <project name="its-hecker/floral-motionsense-plugin"
            path="vendor/hecker/floral/motionsense" remote="floral-github"
-           revision="d924c6ed6d8b5eee9d78bd04e6dfadc5b586cf40"
-           upstream="refs/heads/pixelos-compat" dest-branch="pixelos-compat" />
+           revision="92d0051faf53acac3dfefec6597a12d587eefa73"
+           upstream="refs/heads/main" dest-branch="main" />
   <project name="its-hecker/floral-3D-faceid-plugin"
            path="vendor/hecker/floral/faceid" remote="floral-github"
-           revision="96b7e58ad8378f5b3902f9f4993eb88f4ee07ae2"
+           revision="d998995e1452d2c3d9882bfdf659e1db760a99be"
            upstream="refs/heads/main" dest-branch="main" />
 </manifest>

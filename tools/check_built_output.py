@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Check the installed camera startup files and unchanged Google Camera APKs."""
+"""Check installed camera files, original APKs and the Motion Sense country override."""
 
 from pathlib import Path
+import re
 import sys
 
 from camera_install import SERVICE
 from google_camera import verify_installed
+
+
+def check_motion_sense(output):
+    paths = [output / "product/etc/build.prop", output / "product/build.prop"]
+    properties = next((path for path in paths if path.is_file()), None)
+    if properties is None:
+        raise ValueError("Built product image is missing Motion Sense's product properties")
+    values = re.findall(r"(?m)^\s*pixel\.oslo\.allowed_override\s*=\s*(\S+)\s*$",
+                        properties.read_text())
+    if values != ["1"]:
+        raise ValueError("Built product image needs exactly one pixel.oslo.allowed_override=1")
 
 
 def check(rom, output):
@@ -20,7 +32,9 @@ def check(rom, output):
     if not (output / "vendor/etc/vintf/manifest" / (SERVICE + ".xml")).is_file():
         raise ValueError("Built vendor image is missing the camera VINTF declaration")
     verify_installed(rom, output)
-    print("Built output: camera provider binary/init/VINTF and original ten-APK Google Camera set: PASS")
+    check_motion_sense(output)
+    print("Built output: camera provider binary/init/VINTF, original ten-APK Google Camera set "
+          "and Motion Sense country override: PASS")
 
 
 if __name__ == "__main__":

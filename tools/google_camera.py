@@ -95,6 +95,7 @@ def verify_installed(rom, output):
     if actual != expected:
         raise ValueError("Built GoogleCameraCoral APKs differ from the tested ten-APK split package")
     for partition in ("system", "system_ext", "product", "vendor"):
-        if any((output / partition / kind / "Aperture").exists() for kind in ("app", "priv-app")):
-            raise ValueError("Stale Aperture remains in the built output; run m installclean and rebuild")
+        for name in ("Aperture", "Camera2"):
+            if any((output / partition / kind / name).exists() for kind in ("app", "priv-app")):
+                raise ValueError(f"Stale {name} remains in the built output; run m installclean and rebuild")
 

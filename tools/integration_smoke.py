@@ -57,6 +57,7 @@ def check_product_make(rom):
     source = "\n".join([
         "TARGET_COPY_OUT_VENDOR := vendor",
         "TARGET_COPY_OUT_PRODUCT := product",
+        "TARGET_COPY_OUT_SYSTEM_EXT := system_ext",
         "PRODUCT_NO_CAMERA := true",
         "PRODUCT_PACKAGES := KeepMe android.hardware.biometrics.face@1.0-service.google OsloFeedback",
         "PRODUCT_COPY_FILES := keep:vendor/etc/keep",
@@ -83,7 +84,7 @@ def check_product_make(rom):
     packages = values.get("MAKE_PACKAGES", "").split()
     copies = values.get("MAKE_COPIES", "").split()
     require(motion in namespaces and face in namespaces, "Plugin Soong namespaces are missing")
-    require({"KeepMe", "FloralOsloFeedback", "FloralFaceIDHal", "FloralFaceIDManifest"} <=
+    require({"KeepMe", "FloralOsloFeedback", "FloralMotionSensePrivappPermissions", "FloralFaceIDHal", "FloralFaceIDManifest"} <=
             set(packages), "Prepared plugin packages are missing")
     require("GoogleCameraCoral" in packages and "Aperture" not in packages,
             "Google Camera must replace Aperture in the resolved PixelOS product")
@@ -341,16 +342,18 @@ def test(rom, fetch=True):
     for name, directory in [("HidlToAidlSessionAdapter.java", "hidl"),
                             ("FaceRevokeChallengeClient.java", "aidl"),
                             ("FaceEnrollClient.java", "aidl"),
-                            ("AidlConversionUtils.java", "aidl")]:
+                            ("AidlConversionUtils.java", "aidl"),
+                            ("FaceProvider.java", "aidl"),
+                            ("HidlToAidlSensorAdapter.java", "hidl"),
+                            ("AidlSession.java", "aidl"),
+                            ("SensorList.java", "..")]:
         content = (java_root / directory / name).read_bytes()
-        if name == "HidlToAidlSessionAdapter.java" and b"onChallengeRevoked(challenge)" in content:
-            backup = list((rom / "out/face-framework-patches").glob("*.java.original"))
+        backup = list((rom / "out/face-framework-patches").glob(Path(name).stem + ".*.java.original"))
+        if backup:
             require(len(backup) == 1, "Original framework reference is ambiguous")
             content = backup[0].read_bytes()
         (references / name).write_bytes(content)
     prepare(rom, offline=not fetch)
-    subprocess.run([sys.executable, str(ROOT / "tests/check_face_init.py"),
-                    "--rom-root", str(rom)], cwd=rom, check=True)
     first = profiles(rom)
     prepare(rom, offline=True)
     require(profiles(rom) == first, "Repeated setup changed generated outputs")
@@ -379,7 +382,7 @@ def test(rom, fetch=True):
     require(check.returncode != 0, "Stale generated setup was accepted")
     active.write_bytes(saved)
     subprocess.run([sys.executable, str(motion / "tools/verify_ready.py")], cwd=rom, check=True)
-    java_arguments = [] if shutil.which("javac") and shutil.which("java") else ["--python-only"]
+    java_arguments = [] if shutil.which("java") else ["--python-only"]
     if java_arguments:
         print("Java regression execution unavailable on this host; CI runs it with Temurin 17.")
     subprocess.run([sys.executable, str(face / "tests/check_framework_fixes.py"),

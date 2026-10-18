@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from check_built_output import check, SERVICE
+from check_built_output import check, check_motion_sense, SERVICE
 
 
 class BuiltOutputTests(unittest.TestCase):
@@ -34,12 +34,34 @@ class BuiltOutputTests(unittest.TestCase):
             manifest = output / "vendor/etc/vintf/manifest" / (SERVICE + ".xml")
             manifest.parent.mkdir(parents=True)
             manifest.touch()
+            properties = output / "product/etc/build.prop"
+            properties.parent.mkdir(parents=True)
+            properties.write_text("pixel.oslo.allowed_override=1\n")
             with patch("check_built_output.verify_installed") as apks:
                 check(root, output)
                 apks.assert_called_once_with(root, output)
             init.write_text("service camera /wrong/binary\n")
             with self.assertRaisesRegex(ValueError, "exact camera provider init"):
                 check(root, output)
+
+    def test_motion_sense_requires_the_country_override_in_built_product_properties(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with self.assertRaisesRegex(ValueError, "missing Motion Sense"):
+                check_motion_sense(output)
+            properties = output / "product/etc/build.prop"
+            properties.parent.mkdir(parents=True)
+            for value in ("", "pixel.oslo.allowed_override=0\n",
+                          "pixel.oslo.allowed_override=1\npixel.oslo.allowed_override=1\n"):
+                with self.subTest(properties=value):
+                    properties.write_text(value)
+                    with self.assertRaisesRegex(ValueError, "exactly one"):
+                        check_motion_sense(output)
+            properties.write_text("# pixel.oslo.allowed_override=0\npixel.oslo.allowed_override=1\n")
+            check_motion_sense(output)
+            legacy = output / "product/build.prop"
+            properties.rename(legacy)
+            check_motion_sense(output)
 
 
 if __name__ == "__main__":

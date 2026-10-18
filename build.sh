@@ -5,7 +5,7 @@
 set -eo pipefail
 case "${PIXEL_BUILD_VARIANT:-userdebug}" in
     userdebug|eng) ;;
-    *) echo "The boot-diagnostics branch requires a userdebug or eng build." >&2; exit 1 ;;
+    *) echo "The validated Coral configuration requires a userdebug or eng build." >&2; exit 1 ;;
 esac
 if [[ ! -d .repo ]]; then
     echo "Run this script from the PixelOS Android source root containing .repo." >&2
@@ -33,16 +33,18 @@ python3 "$floral_setup_dir/tools/validate.py" --rom-root "$PWD"
 source build/envsetup.sh
 breakfast coral "${PIXEL_BUILD_VARIANT:-userdebug}"
 floral_product_out="$(get_build_var PRODUCT_OUT)"
-floral_stale_aperture=false
+floral_stale_camera=false
 for floral_partition in system system_ext product vendor; do
     for floral_app_type in app priv-app; do
-        if [[ -d "$floral_product_out/$floral_partition/$floral_app_type/Aperture" ]]; then
-            floral_stale_aperture=true
-        fi
+        for floral_stock_camera in Aperture Camera2; do
+            if [[ -d "$floral_product_out/$floral_partition/$floral_app_type/$floral_stock_camera" ]]; then
+                floral_stale_camera=true
+            fi
+        done
     done
 done
-if [[ "$floral_stale_aperture" == true ]]; then
-    echo "Removing the previous Aperture installation from build outputs (installclean)."
+if [[ "$floral_stale_camera" == true ]]; then
+    echo "Removing previous stock camera installations from build outputs (installclean)."
     m installclean
 fi
 m -j"${PIXEL_BUILD_JOBS:-$(nproc)}" pixelos

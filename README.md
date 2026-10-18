@@ -1,71 +1,38 @@
 # PixelOS Android 17 for Pixel 4 XL
 
-The previous `boot-diagnostics` Coral build boots.
-This branch now targets the remaining camera, Face ID and Motion Sense failures
-and selects the tested Google Camera 8.7 package. Device/vendor and Motion Sense
-compatibility pins match the fixes; the kernel and Face ID plugin are retained.
-The capture starts at `early-fs` and writes bounded logs under
-`/metadata/pixelos-boot-debug`, before userdata mounting/decryption is needed.
-It requires a `userdebug` or `eng` build and uses the existing AOSP debug domain.
-It does not enable unauthenticated ADB or change global SELinux enforcement.
+Stable source integration for **Pixel 4 XL (`coral`)**, using PixelOS `seventeen`,
+the CNB kernel and the standalone Floral Motion Sense and hardware 3D Face ID
+plugins. The maintainer confirmed the build and features working on the phone
+on **18 October 2026**.
 
-The October 17 Android capture now identifies two framework boot failures:
-FloralMotionSenseSettings lacks the WRITE_SECURE_SETTINGS privileged permission
-allowlist entry, and the HIDL Face provider can run cleanup before registering
-its sensor. The matching device pin installs that one permission under
-system_ext/etc/permissions. Preparation backs up FaceProvider.java and changes
-only its reviewed HIDL registration method, publishing the new sensor before
-the lazy HAL connection can schedule cleanup. User switching and reconnect
-cleanup are retained. Unfamiliar source methods or contracts are refused.
-The running-system bug report then showed zero cameras and no parsed provider
-init script. The selected stock camera prebuilt now installs the script;
-preparation clears its competing attachment on the unused AOSP module. A narrow
-vendor_init rule permits ro.vendor.aware_available, whose denied set operation
-left Motion Sense unavailable. The duplicate Motion Sense launcher entry is
-removed while its Settings integration remains. Face HAL recovery and all
-hardware behavior still require a new ROM build and phone test.
+The stable sources include camera/flashlight startup, the original Google Camera
+8.7 base plus nine feature splits, Aperture/Camera2 exclusion, HIDL Face startup
+and callback ordering, enrollment/challenge fixes, and Motion Sense country
+availability. Face enrollment and two successful authentications were observed
+with zero HAL deaths or stuck operations. Motion Sense detected flick/reach/tap
+input and sent next/previous and pause controls to the music app.
 
-Google Camera **8.7.250.494820638.44** replaces Aperture with the exact original
-Google-signed base and nine common feature splits tested on Infinity-X Coral.
-Preparation downloads the three immutable chunks once and verifies every APK
-hash and the APK-set install group. --offline reuses that verified cache.
-Android compilation performs no Camera downloads. Existing Camera SELinux
-policy and product defaults are retained. If old Aperture output is present,
-build.sh runs installclean, preserving compiled intermediate objects. After
-compilation it checks the installed camera provider binary/init/VINTF and all
-ten original Camera APKs before reporting success.
+Both plugins now own their reusable fixes: Face ID applies all guarded framework
+patches during normal preparation, and Motion Sense installs its own narrow
+`system_ext` privileged-permission allowlist. A separate local patch download is
+not needed for this stable configuration. The older helper remains available for
+previous pinned diagnostic checkouts.
 
-Build this branch with the usual `build.sh`. Let the resulting ROM attempt to
-boot for two to three minutes, enter recovery without formatting, then collect:
-
-```bat
-adb devices
-adb pull /metadata/pixelos-boot-debug PixelOS-boot-debug
-```
-
-The script preserves the capture when entering recovery. Logcat rotates across
-four approximately 192 KiB files; snapshots and stderr are bounded, Metadata
-must have at least 4 MiB free, and capture ends on boot completion or after five
-minutes. ZIP the pulled folder for analysis. This is a diagnostic build, not a
-verified fix for the startup failure. To return to the regular setup, switch the
-local manifest back to `main` and sync the device, vendor and Motion Sense
-projects before rebuilding.
-
-Build setup for **Pixel 4 XL (`coral`)** using PixelOS `seventeen`, independent
-Nahida-derived device/vendor copies, the CNB kernel, and the standalone Floral
-**3D Face ID** and **Motion Sense** plugins.
+The existing bounded Metadata boot capture is retained for `userdebug`/`eng` and
+excluded from `user` products. It uses the existing AOSP debug domain, preserves
+normal ADB authorization and writes under `/metadata/pixelos-boot-debug`.
 
 ## Sources
 
 | Checkout path | Repository | Revision |
 | --- | --- | --- |
-| `device/google/coral` | [PixelOS device copy](https://github.com/its-hecker/pixelos_android_device_google_coral) | pinned `df2f8ef8`, from `boot-diagnostics` |
-| `vendor/google/coral` | [PixelOS vendor copy](https://github.com/its-hecker/pixelos_proprietary_vendor_google_coral) | pinned `fc4a5b6b`, from `boot-diagnostics` |
+| `device/google/coral` | [PixelOS device copy](https://github.com/its-hecker/pixelos_android_device_google_coral) | pinned `86de5f04`, from `main` |
+| `vendor/google/coral` | [PixelOS vendor copy](https://github.com/its-hecker/pixelos_proprietary_vendor_google_coral) | pinned `fc4a5b6b`, from `main` |
 | `kernel/google/msm-4.14` | [CNB kernel](https://github.com/its-hecker/infinity_cnb_kernel_google_msm-4.14) | pinned `aaaa03e4`, from `cnb-Latest-stable` |
 | `packages/apps/ElmyraService` | [ElmyraService](https://github.com/LineageOS/android_packages_apps_ElmyraService) | pinned `baab2beb`, from `lineage-24.0` |
 | `vendor/lunaris/dolby` | [Lunaris Dolby](https://github.com/its-hecker/vendor_lunaris_dolby) | pinned `544e6271`, from `pixelos-compat` |
-| `vendor/hecker/floral/motionsense` | [Motion Sense plugin](https://github.com/its-hecker/floral-motionsense-plugin) | pinned `d924c6ed`, from `pixelos-compat` |
-| `vendor/hecker/floral/faceid` | [3D Face ID plugin](https://github.com/its-hecker/floral-3D-faceid-plugin) | pinned `96b7e58a`, from `main` |
+| `vendor/hecker/floral/motionsense` | [Motion Sense plugin](https://github.com/its-hecker/floral-motionsense-plugin) | pinned `92d0051f`, from `main` |
+| `vendor/hecker/floral/faceid` | [3D Face ID plugin](https://github.com/its-hecker/floral-3D-faceid-plugin) | pinned `d998995e`, from `main` |
 
 The old kernel branch `cnb` was renamed to `cnb-Latest-stable`. This setup uses
 that same CNB source, including its pinned KernelSU submodule (`sync-s="true"`).
@@ -136,7 +103,7 @@ Create and enter a separate PixelOS build directory:
 mkdir -p ~/pixelos
 cd ~/pixelos
 repo init -u https://github.com/PixelOS-AOSP/android_manifest.git -b seventeen --git-lfs
-git clone -b boot-diagnostics https://github.com/its-hecker/Pixelos-localmanifest.git .repo/local_manifests
+git clone -b main https://github.com/its-hecker/Pixelos-localmanifest.git .repo/local_manifests
 repo sync -c -j8
 ```
 
@@ -397,14 +364,14 @@ breakfast coral userdebug
 m pixelos
 ```
 
-`PIXEL_BUILD_JOBS=8` controls parallel build jobs. This diagnostic branch requires
+`PIXEL_BUILD_JOBS=8` controls parallel build jobs. The validated Coral configuration uses
 `PIXEL_BUILD_VARIANT=userdebug` or `eng`. `--offline` passed to the script
 uses previously cached, checksum-verified plugin binaries. The full Android
 build itself performs no plugin downloads.
 
 **Rerun preparation after every sync** of framework, vendor, overlay or plugin
 sources. Changed inputs invalidate the plugins' build-time checks. Framework
-patching is idempotent and backs up the original adapter under
+patching is idempotent and backs up the original framework files under
 `out/face-framework-patches/`. An unfamiliar framework implementation is refused
 for review instead of force-patched.
 
@@ -421,7 +388,7 @@ For a record of all exact commits used by a completed build:
 repo manifest -r -o out/pixelos-coral-source-manifest.xml
 ```
 
-## Validation and first phone test
+## Validation and phone testing
 
 CI checks the real PixelOS source and both standalone plugin packages: framework
 patch compatibility, native ABI/crypto/calibration bindings, APK interfaces,
@@ -432,9 +399,9 @@ configuration, and verifies Qualcomm namespace exports against pinned upstream
 manifest/common sources. It uses small checkouts; it **does not compile Android**.
 Initial upstream inputs used by CI are recorded in `source-revisions.json`.
 
-Full ROM compilation, SELinux/VINTF build checks and a PixelOS phone test remain
-required. A passing setup test does not establish boot or hardware behavior.
-For the first test on Coral, check:
+The October 18 Coral build completed and was tested on the phone. CI remains a
+source/setup check; future framework or hardware changes need another ROM build
+and phone test. When testing a changed build, check:
 
 - Boot, front/rear camera, telephony/data, Wi-Fi, eSIM and audio.
 - Face enrollment, lock-screen unlock, repeated Face settings visits,

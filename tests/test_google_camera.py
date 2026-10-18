@@ -30,7 +30,7 @@ class CameraPayloadTests(unittest.TestCase):
                 fetch_chunk("https://example.invalid/pinned", path, expected)
             self.assertEqual(path.read_bytes(), b"good")
 
-    def test_installed_package_requires_every_original_split_and_no_aperture(self):
+    def test_installed_package_requires_every_original_split_and_no_stock_camera(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             camera = root / CAMERA
@@ -47,10 +47,13 @@ class CameraPayloadTests(unittest.TestCase):
                 verify_installed(root, output)
             (installed / "feature.apk").write_bytes(b"startup")
             verify_installed(root, output)
-            stale = output / "product/app/Aperture"
-            stale.mkdir()
-            with self.assertRaisesRegex(ValueError, "Stale Aperture"):
-                verify_installed(root, output)
+            for name in ("Aperture", "Camera2"):
+                with self.subTest(stock_camera=name):
+                    stale = output / "product/app" / name
+                    stale.mkdir()
+                    with self.assertRaisesRegex(ValueError, "Stale " + name):
+                        verify_installed(root, output)
+                    stale.rmdir()
 
 
 if __name__ == "__main__":

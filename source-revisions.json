@@ -1,5 +1,5 @@
 {
-  "checked_on": "2026-10-17",
+  "checked_on": "2026-10-18",
   "pixelos_manifest": {
     "repository": "PixelOS-AOSP/android_manifest",
     "branch": "seventeen",
@@ -91,7 +91,8 @@
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlConversionUtils.java",
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java",
         "services/core/java/com/android/server/biometrics/sensors/face/hidl/HidlToAidlSensorAdapter.java",
-        "services/core/java/com/android/server/biometrics/sensors/SensorList.java"
+        "services/core/java/com/android/server/biometrics/sensors/SensorList.java",
+        "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlSession.java"
       ]
     },
     "hardware/google/camera": {
