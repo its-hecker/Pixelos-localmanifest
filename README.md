@@ -388,47 +388,6 @@ For a record of all exact commits used by a completed build:
 repo manifest -r -o out/pixelos-coral-source-manifest.xml
 ```
 
-### Additional boot image without KernelSU
-
-After completing the normal Coral ROM build, run:
-
-```bash
-PIXEL_BUILD_JOBS=8 python3 .repo/local_manifests/tools/build_noksu_boot.py
-```
-
-This builds the `bootimage` target in a separate absolute `OUT_DIR`, `out-noksu/`.
-The first run compiles the boot/recovery dependencies needed in that output tree;
-it does not build an OTA package. The normal build output and kernel defconfig
-are preserved. The helper derives a config fragment from the working kernel,
-disables all KernelSU and SUSFS options, and uses PixelOS's normal boot image
-packaging and locally configured signing settings. Keep the provider's RBE
-environment as usual.
-
-For an absolute output path, the helper also applies a guarded fix to
-`build/soong/ci_tests/ci_test_package_zip.go`. The old host-file filter assumes
-output paths start with `out`, which makes Soong try to stage host tools such as
-Perfetto inside a device test package. The fix checks whether each installed
-file is inside the product output directory using `android.MaybeRel`. The first
-original source is saved under `out-noksu/source-backups/`; reruns preserve that
-backup and an unfamiliar source implementation is refused.
-
-The exported image is `out-noksu/PixelOS-coral-noKSU-boot.img`, with a SHA256 file
-and JSON verification report beside it. Export requires the compiled image's
-embedded configuration to show KernelSU disabled, no unrelated config changes,
-and matching kernel release, exported module CRCs, DTB, OS version and command
-line. If these checks fail, do not flash the intermediate `boot.img`; the error
-identifies the mismatch. This is an additional boot image for the matching ROM,
-not a replacement ROM or a claim of phone boot testing.
-
-The embedded-config reader supports both modern and legacy LZ4 frames and uses
-`lz4` or `lz4c` from the kernel, Lineage or Android build prebuilts, or `PATH`.
-It checks the config gzip stream and end marker directly from the kernel image;
-the older kernel's shell extraction script is not required.
-
-Use `--base-out` for a completed ROM in another output directory, and `--out`
-for a fresh separate no-KSU output. A previous no-KSU build can resume only
-against the same baseline. Do not run it while changing or rebuilding that baseline.
-
 ## Validation and phone testing
 
 CI checks the real PixelOS source and both standalone plugin packages: framework
