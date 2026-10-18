@@ -2,9 +2,12 @@
 """Boot header, root removal, module compatibility and isolated-output guards."""
 
 import importlib.util
+import gzip
 import os
 from pathlib import Path
+import shutil
 import struct
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -26,6 +29,15 @@ CONFIG_KSU_FULL_NAME_FORMAT="%KSU_VERSION%"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_LOCALVERSION="-CNB"
 """
+
+LZ4 = os.environ.get("PIXEL_NOKSU_TEST_LZ4") or shutil.which("lz4") or shutil.which("lz4c")
+
+
+def kernel_data(config=CONFIG):
+    compressed = gzip.compress(config.encode(), mtime=0)
+    # Reuse the gzip bytes before the real IKCONFIG so LZ4 can encode the
+    # actual config with back-references; scanning compressed bytes cannot work.
+    return compressed * 8 + b"\0" * 256 + b"IKCFG_ST" + compressed + b"IKCFG_ED" + b"\0" * 256
 
 
 def boot(kernel=b"kernel", dtb=b"dtb", recovery=b"", second=b""):
@@ -111,6 +123,82 @@ class NoKsuTests(unittest.TestCase):
         self.assertEqual(noksu.baseline_out(self.rom, {"OUT_DIR": "custom"}), self.rom / "custom")
         self.assertEqual(noksu.baseline_out(self.rom, {"OUT_DIR_COMMON_BASE": "/builds"}),
                          Path("/builds") / self.rom.name)
+
+    def test_reads_config_from_actual_uncompressed_kernel(self):
+        image = self.rom / "Image"
+        image.write_bytes(kernel_data())
+        self.assertEqual(noksu.embedded_config(self.rom, image), CONFIG)
+
+    def test_rejects_damaged_gzip_or_missing_end_marker(self):
+        image = self.rom / "Image"
+        data = b"IKCFG_ST" + gzip.compress(CONFIG.encode(), mtime=0) + b"IKCFG_ED"
+        damaged = bytearray(data)
+        damaged[-9] ^= 1  # Corrupt the gzip length trailer.
+        for value in (bytes(damaged), data[:-8], b"CONFIG_IKCONFIG=y\n"):
+            image.write_bytes(value)
+            with self.subTest(value=value[:20]), self.assertRaisesRegex(ValueError, "no intact IKCONFIG"):
+                noksu.embedded_config(self.rom, image)
+
+    def test_skips_false_start_markers_before_the_real_config(self):
+        image = self.rom / "Image"
+        image.write_bytes(b"IKCFG_ST\x1f\x8b\x08garbage" + kernel_data())
+        self.assertEqual(noksu.embedded_config(self.rom, image), CONFIG)
+
+    @unittest.skipUnless(LZ4, "requires the lz4/lz4c test executable")
+    def test_reads_both_modern_and_legacy_lz4_frames_with_real_decoder(self):
+        binary = self.rom / "prebuilts/kernel-build-tools/linux-x86/bin/lz4"
+        binary.parent.mkdir(parents=True)
+        binary.symlink_to(Path(LZ4).resolve())
+        image = self.rom / "Image.lz4"
+        for flags, magic in (([], b"\x04\x22\x4d\x18"), (["-l"], b"\x02\x21\x4c\x18")):
+            for config in (CONFIG, noksu.no_ksu_config(CONFIG)):
+                with self.subTest(flags=flags, rooted="CONFIG_KSU=y" in config):
+                    data = subprocess.run([LZ4, *flags, "-9", "-c"], input=kernel_data(config),
+                                          capture_output=True, check=True).stdout
+                    self.assertEqual(data[:4], magic)
+                    image.write_bytes(data)
+                    self.assertEqual(noksu.embedded_config(self.rom, image), config)
+
+    @unittest.skipUnless(LZ4, "requires the lz4/lz4c test executable")
+    def test_uses_lz4c_and_reports_decompression_errors(self):
+        binary = self.rom / "prebuilts/kernel-build-tools/linux-x86/bin/lz4c"
+        binary.parent.mkdir(parents=True)
+        binary.symlink_to(Path(LZ4).resolve())
+        image = self.rom / "Image.lz4"
+        data = subprocess.run([LZ4, "-9", "-c"], input=kernel_data(), capture_output=True, check=True).stdout
+        image.write_bytes(data)
+        with mock.patch.dict(os.environ, {"PATH": ""}):
+            self.assertEqual(noksu.embedded_config(self.rom, image), CONFIG)
+            image.write_bytes(data[:10])
+            with self.assertRaisesRegex(ValueError, "Cannot decompress"):
+                noksu.embedded_config(self.rom, image)
+
+    def test_reports_missing_decoder_without_using_config_file(self):
+        image = self.rom / "Image.lz4"
+        image.write_bytes(b"\x04\x22\x4d\x18dummy")
+        (self.rom / ".config").write_text(CONFIG)
+        with mock.patch.dict(os.environ, {"PATH": str(self.rom / "no-tools")}):
+            with self.assertRaisesRegex(ValueError, "no executable lz4 or lz4c"):
+                noksu.embedded_config(self.rom, image)
+
+    @unittest.skipUnless(LZ4, "requires the lz4/lz4c test executable")
+    def test_falls_back_from_unusable_prebuilt_to_other_build_tools(self):
+        broken = self.rom / "prebuilts/kernel-build-tools/linux-x86/bin/lz4"
+        broken.parent.mkdir(parents=True)
+        broken.write_bytes(b"not an executable file format")
+        broken.chmod(0o755)
+        image = self.rom / "Image.lz4"
+        image.write_bytes(subprocess.run([LZ4, "-9", "-c"], input=kernel_data(),
+                                         capture_output=True, check=True).stdout)
+        for relative in ("prebuilts/tools-lineage/linux-x86/bin/lz4c",
+                         "prebuilts/build-tools/linux-x86/bin/lz4"):
+            with self.subTest(relative=relative):
+                binary = self.rom / relative
+                binary.parent.mkdir(parents=True, exist_ok=True)
+                binary.symlink_to(Path(LZ4).resolve())
+                with mock.patch.dict(os.environ, {"PATH": ""}):
+                    self.assertEqual(noksu.embedded_config(self.rom, image), CONFIG)
+                binary.unlink()
 
     def stage(self):
         (self.rom / ".repo").mkdir()

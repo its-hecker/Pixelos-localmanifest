@@ -412,6 +412,11 @@ line. If these checks fail, do not flash the intermediate `boot.img`; the error
 identifies the mismatch. This is an additional boot image for the matching ROM,
 not a replacement ROM or a claim of phone boot testing.
 
+The embedded-config reader supports both modern and legacy LZ4 frames and uses
+`lz4` or `lz4c` from the kernel, Lineage or Android build prebuilts, or `PATH`.
+It checks the config gzip stream and end marker directly from the kernel image;
+the older kernel's shell extraction script is not required.
+
 Use `--base-out` for a completed ROM in another output directory, and `--out`
 for a fresh separate no-KSU output. A previous no-KSU build can resume only
 against the same baseline. Do not run it while changing or rebuilding that baseline.

@@ -16,7 +16,10 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Verify checkout recovery and build preflight
-        run: python3 -m unittest discover -s tests -p 'test_*.py'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lz4
+          python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Validate manifest and exercise both standalone plugins against PixelOS
         run: |
           python3 tools/validate.py

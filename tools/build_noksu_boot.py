@@ -13,6 +13,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import zlib
 
 
 IMAGE = "PixelOS-coral-noKSU-boot.img"
@@ -109,14 +110,58 @@ def check_abi(baseline, candidate):
             ", ".join(sorted(changes)[:20]))
 
 
+def decompress_lz4(rom, image):
+    # The 4.14 shell extractor only recognizes legacy LZ4. This kernel's
+    # scripts/Makefile.lib runs `lz4c -9`, which can produce modern frames.
+    # Both command names accept -d -c for either format; use the build's
+    # prebuilts first and fall back to executable host tools.
+    search = [str(rom / relative) for relative in (
+        "prebuilts/kernel-build-tools/linux-x86/bin",
+        "prebuilts/tools-lineage/linux-x86/bin",
+        "prebuilts/build-tools/linux-x86/bin",
+    )]
+    search += os.environ.get("PATH", os.defpath).split(os.pathsep)
+    attempted, errors = set(), []
+    for directory in search:
+        for name in ("lz4", "lz4c"):
+            tool = (Path(directory) / name).resolve()
+            if tool in attempted or not tool.is_file() or not os.access(tool, os.X_OK):
+                continue
+            attempted.add(tool)
+            try:
+                result = subprocess.run([str(tool), "-d", "-c", str(image)], capture_output=True)
+            except OSError as error:
+                errors.append(f"{tool}: {error}")
+                continue
+            if result.returncode == 0:
+                return result.stdout
+            errors.append(f"{tool}: " + result.stderr.decode("utf-8", errors="replace").strip()[-500:])
+    require(attempted, "Cannot decompress the kernel: no executable lz4 or lz4c found in the build prebuilts or PATH.")
+    raise ValueError("Cannot decompress " + str(image) + ": " + "; ".join(errors))
+
+
 def embedded_config(rom, image):
-    environment = os.environ.copy()
-    environment["PATH"] = str(rom / "prebuilts/kernel-build-tools/linux-x86/bin") + ":" + environment["PATH"]
-    result = subprocess.run(["bash", str(rom / "kernel/google/msm-4.14/scripts/extract-ikconfig"),
-                             str(image)], env=environment, text=True, capture_output=True)
-    require(result.returncode == 0 and "CONFIG_IKCONFIG=y" in result.stdout,
-            "Cannot verify the configuration embedded in " + str(image) + ": " + result.stderr.strip())
-    return result.stdout
+    data = image.read_bytes()
+    if data[:4] in (b"\x04\x22\x4d\x18", b"\x02\x21\x4c\x18"):
+        data = decompress_lz4(rom, image)
+    # Read IKCONFIG from the actual image, including gzip CRC/length checking
+    # and the kernel's end marker. Never substitute a possibly stale .config.
+    marker, offset = b"IKCFG_ST\x1f\x8b\x08", 0
+    while True:
+        start = data.find(marker, offset)
+        if start == -1:
+            break
+        offset = start + len(marker)
+        decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        try:
+            config = decoder.decompress(data[start + 8:]).decode("utf-8")
+        except (zlib.error, UnicodeError):
+            continue
+        if (decoder.eof and decoder.unused_data.startswith(b"IKCFG_ED") and
+                config_values(config).get("CONFIG_IKCONFIG") == "y"):
+            return config
+    raise ValueError("Cannot verify the configuration embedded in " + str(image) +
+                     ": no intact IKCONFIG gzip stream with an end marker was found.")
 
 
 def baseline_out(rom, environment):
