@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Guarded, reversible access wiring for Android 17 native App Lock."""
+"""Guarded, reversible App Lock access and Motion Sense navigation integration."""
 
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 import shutil
 import sys
 import xml.etree.ElementTree as ET
@@ -15,6 +16,11 @@ FRAMEWORK = Path("frameworks/base")
 ANDROID = "{http://schemas.android.com/apk/res/android}"
 PERMISSION = "android.permission.HECKER_SUITE_APP_LOCK"
 HELPER = "services/core/java/com/android/server/pm/HeckerSuiteAppLockAccess.java"
+MOTION = Path("vendor/hecker/floral/motionsense/settings")
+MOTION_MANIFEST = "generated/hecker-suite/AndroidManifest.xml"
+MOTION_ACTIVITY = "org.hecker.floral.motionsense.motionsense.MotionSenseActivity"
+MOTION_BP_OLD = 'android_app {\n    name: "FloralMotionSenseSettings",'
+MOTION_BP_NEW = MOTION_BP_OLD + '\n    manifest: "' + MOTION_MANIFEST + '",'
 
 MANIFEST_OLD = '''    <!-- Permission granted to apps holding the {@link android.app.role.RoleManager#ROLE_HOME} role
          that allows them to enable app lock. This is also granted to the recents component, which
@@ -93,6 +99,63 @@ def replace_guarded(content, old, new, relative, revert=False):
     return content if revert else content.replace(old, new, 1)
 
 
+def motion_manifest(source):
+    """Keep the existing app intact; remove only its standalone Settings registration."""
+    manifest = ET.fromstring(source)
+    package = manifest.get("package")
+    if package != "org.hecker.floral.motionsense":
+        raise ValueError("Unfamiliar Motion Sense settings package")
+    activities = [node for node in manifest.findall("application/activity")
+                  if (package + node.get(ANDROID + "name", "")
+                      if node.get(ANDROID + "name", "").startswith(".")
+                      else node.get(ANDROID + "name")) == MOTION_ACTIVITY]
+    if len(activities) != 1 or activities[0].get(ANDROID + "exported") != "true":
+        raise ValueError("Motion Sense must retain its exported settings activity")
+    activity = activities[0]
+    entries = [node for node in activity.findall("intent-filter")
+               if any(action.get(ANDROID + "name") == "com.android.settings.action.IA_SETTINGS"
+                      for action in node.findall("action"))]
+    if len(entries) != 1 or len(entries[0].findall("action")) != 1:
+        raise ValueError("Unfamiliar Motion Sense Settings registration")
+    activity.remove(entries[0])
+    for node in list(activity.findall("meta-data")):
+        if node.get(ANDROID + "name", "").startswith("com.android.settings."):
+            activity.remove(node)
+    activity.append(ET.Comment(" Navigation is provided by Hecker's Suite in this build. "))
+    ET.register_namespace("android", ANDROID[1:-1])
+    ET.indent(manifest, space="    ")
+    return '<?xml version="1.0" encoding="utf-8"?>\n' + ET.tostring(manifest, encoding="unicode") + "\n"
+
+
+def motion_plan(rom, revert=False):
+    settings = rom / MOTION
+    if not settings.is_dir():
+        return {}  # The standalone Suite can also be built without the Motion Sense plugin.
+    source = (settings / "AndroidManifest.xml").read_text()
+    generated = settings / MOTION_MANIFEST
+    expected = motion_manifest(source)
+    if generated.exists() and generated.read_text() != expected:
+        raise ValueError("Preserving an unfamiliar generated Motion Sense manifest: " + str(generated))
+    changes = {}
+    for name in ("Android.bp.in", "Android.bp"):
+        path = settings / name
+        if name == "Android.bp" and not path.exists():
+            continue
+        current = path.read_text()
+        block = re.search(r'(?ms)^android_app\s*\{\s*name:\s*"FloralMotionSenseSettings",.*?^\}', current)
+        if block is None or re.search(r'\bmanifest\s*:', block.group().replace(
+                '\n    manifest: "' + MOTION_MANIFEST + '",', '')):
+            raise ValueError("Unfamiliar Motion Sense app manifest selection: " + str(path))
+        target = replace_guarded(current, MOTION_BP_OLD, MOTION_BP_NEW, str(path), revert)
+        if target != current:
+            changes[path] = target
+    if revert:
+        if generated.exists(): changes[generated] = None
+    elif not generated.exists():
+        changes[generated] = expected
+    return changes
+
+
 def plan(rom, revert=False):
     base = rom / FRAMEWORK
     if not revert:
@@ -120,6 +183,7 @@ def plan(rom, revert=False):
         if helper.exists(): changes[helper] = None
     elif not helper.exists():
         changes[helper] = expected
+    changes.update(motion_plan(rom, revert))
     return changes
 
 
@@ -127,11 +191,11 @@ def apply(rom, mode):
     changes = plan(rom, mode == "revert")
     if mode == "verify":
         if changes:
-            raise ValueError("Suite access patches are missing; run tools/prepare.py --apply")
-        print("Hecker Suite native App Lock access: already applied and verified")
+            raise ValueError("Suite source integration is missing; run tools/prepare.py --apply")
+        print("Hecker Suite App Lock access and settings navigation: already applied and verified")
         return
     if mode == "check":
-        print("Hecker Suite native App Lock access:", "ready to apply" if changes else "already applied")
+        print("Hecker Suite source integration:", "ready to apply" if changes else "already applied")
         return
     if changes:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -160,7 +224,7 @@ def apply(rom, mode):
                 if original is None: path.unlink(missing_ok=True)
                 else: path.write_text(original)
             raise
-    print("Hecker Suite native App Lock access:", "reverted" if mode == "revert" else "applied")
+    print("Hecker Suite source integration:", "reverted" if mode == "revert" else "applied")
 
 
 def main():

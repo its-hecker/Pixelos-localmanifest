@@ -1,6 +1,6 @@
 # Hecker's Suite — Android 17 Floral plugin
 
-Settings → System → **Hecker's Suite**, with **App Lock** and **Infrared Camera**
+Settings → System → **Hecker's Suite**, with **App Lock**, **Motion Sense** and **Infrared Camera**
 for Google Pixel 4 (`flame`) and Pixel 4 XL (`coral`). Maintainer: **Hecker**.
 
 This is ROM source, not a sideload-only APK. The initial PixelOS integration is
@@ -9,6 +9,9 @@ isolated on `features-experimental`; stable source branches are unchanged.
 ## Included
 
 - Settings entry, without an app-drawer duplicate.
+- Motion Sense navigation, opening the existing Floral settings app with all its
+  gestures, Glow Light, Motion Lab and media-app controls. Its separate System
+  settings entry is removed in Suite builds; its Quick Settings tile is retained.
 - Original Lottie shield/scan, success and failure animations in the Suite and
   its authenticated App Lock settings page. System biometric prompts retain
   Android's native authentication UI and animations.
@@ -81,6 +84,15 @@ camera/Face ID stack. Reviewed source baseline:
 `PixelOS-AOSP/android_frameworks_base@81b912ee97d9d4673ed4696bde30f14841b26c99`.
 Unfamiliar methods or a changed native permission are refused before any edits.
 Source backups are placed under `out/hecker-suite-source-backups/`.
+
+When the Floral Motion Sense plugin is checked out, Suite preparation also selects
+a generated manifest for its existing settings module. Only that manifest's
+standalone Settings registration is removed. The original manifest, package, UID,
+permissions, activity names, source and resources are retained. This selection
+is local to builds using Suite preparation; no stable Motion Sense branch is
+modified. `--revert` restores both the template and any generated Blueprint and
+removes the Suite manifest. Rerun the ROM's normal plugin preparation afterward.
+Without the Motion Sense plugin, its Suite card reports that settings are unavailable.
 
 ## Infrared camera behavior
 

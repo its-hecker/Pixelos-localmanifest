@@ -2,10 +2,12 @@
 package org.hecker.suite;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 public final class SuiteActivity extends Activity {
     private SuiteAnimation animation;
@@ -19,10 +21,22 @@ public final class SuiteActivity extends Activity {
         page.addView(hero);
         Ui.actionCard(this, page, R.string.app_lock_title, R.string.app_lock_summary,
                 v -> startActivity(new Intent(this, AppLockActivity.class)));
+        Ui.actionCard(this, page, R.string.motion_sense_title, R.string.motion_sense_summary,
+                v -> openMotionSense());
         Ui.actionCard(this, page, R.string.ir_title, R.string.ir_summary,
                 v -> startActivity(new Intent(this, InfraredCameraActivity.class)));
         page.addView(Ui.text(this, getString(R.string.credit), 13, false));
         Ui.scroll(this, page);
+    }
+
+    private void openMotionSense() {
+        Intent intent = new Intent().setClassName("org.hecker.floral.motionsense",
+                "org.hecker.floral.motionsense.motionsense.MotionSenseActivity");
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException | SecurityException unavailable) {
+            Toast.makeText(this, R.string.motion_sense_unavailable, Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override protected void onStart() {

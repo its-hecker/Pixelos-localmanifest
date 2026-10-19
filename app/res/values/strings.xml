@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="suite_title">Hecker\'s Suite</string>
-    <string name="suite_summary">App Lock and Infrared Camera</string>
+    <string name="suite_summary">App Lock, Motion Sense and Infrared Camera</string>
     <string name="suite_intro">A little more from your Pixel.</string>
     <string name="app_lock_title">App Lock</string>
     <string name="app_lock_summary">Protect selected apps with your 3D face or screen lock.</string>
+    <string name="motion_sense_title">Motion Sense</string>
+    <string name="motion_sense_summary">Touchless gestures, Glow Light and Motion Lab.</string>
+    <string name="motion_sense_unavailable">Motion Sense settings are unavailable in this build.</string>
     <string name="ir_title">Infrared Camera</string>
     <string name="ir_summary">See through your Pixel\'s infrared sensors.</string>
     <string name="credit">Made by Hecker</string>
