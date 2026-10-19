@@ -40,6 +40,8 @@ public final class GamingPolicyTest {
         check(!GamingPolicy.canClean(11003,11000,300,false,protectedUids));
         check(!GamingPolicy.canClean(11003,11000,400,true,protectedUids));
         check(!GamingPolicy.canClean(1000,11000,400,false,protectedUids));
+        check(!GamingPolicy.canClean(99001,11000,400,false,protectedUids));
+        check(!GamingPolicy.canClean(20001,11000,400,false,protectedUids));
         check(!GamingPolicy.canClean(111003,11000,400,false,protectedUids));
         check(GamingPolicy.canClean(111003,111000,400,false,Set.of()));
         check(GamingPolicy.usableFps(0)==0);

@@ -32,7 +32,9 @@ final class GamingPolicy {
     }
     static boolean canClean(int uid, int ownUid, int importance, boolean system,
             Set<Integer> protectedUids) {
-        return uid / 100000 == ownUid / 100000 && uid % 100000 >= 10000
+        int appId = uid % 100000;
+        // Isolated and SDK sandbox UIDs do not identify an installed app to clean.
+        return uid / 100000 == ownUid / 100000 && appId >= 10000 && appId <= 19999
                 && importance >= 400 && !system && uid != ownUid && !protectedUids.contains(uid);
     }
     static float usableFps(float value) {
