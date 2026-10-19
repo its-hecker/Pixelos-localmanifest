@@ -13,17 +13,22 @@ branch and checked out at `vendor/hecker/floral/suite`. The manifest pins the ex
 plugin and experimental device commits. The separate `hecker_suite` release
 inherits `cp2a` and enables native App Lock without changing stable release flags.
 
-From your existing PixelOS source checkout:
+For the first switch from your stable PixelOS checkout (also works with a
+single-branch shallow clone of the local manifest):
 
 ```bash
 cd ~/pixelos
-git -C .repo/local_manifests fetch origin features-experimental
+git -C .repo/local_manifests fetch origin features-experimental:features-experimental
 git -C .repo/local_manifests switch features-experimental
 git -C .repo/local_manifests pull --ff-only origin features-experimental
 repo sync -c -j8 --fail-fast device/google/coral vendor/hecker/floral/suite
 git -C kernel/google/msm-4.14 submodule update --init --recursive
 bash .repo/local_manifests/build.sh
 ```
+
+For later updates while already on `features-experimental`, use
+`git -C .repo/local_manifests pull --ff-only origin features-experimental`, then
+sync the device/Suite paths and run the build script again.
 
 The experimental build script prepares the existing Motion Sense/Face ID plugins,
 applies the guarded Suite access patch, and selects
