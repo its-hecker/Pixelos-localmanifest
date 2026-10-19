@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="suite_title">Hecker\'s Suite</string>
+    <string name="suite_summary">App Lock and Infrared Camera</string>
+    <string name="suite_intro">A little more from your Pixel.</string>
+    <string name="app_lock_title">App Lock</string>
+    <string name="app_lock_summary">Protect selected apps with your 3D face or screen lock.</string>
+    <string name="ir_title">Infrared Camera</string>
+    <string name="ir_summary">See through your Pixel\'s infrared sensors.</string>
+    <string name="credit">Made by Hecker</string>
+    <string name="authenticate_title">Hecker\'s Suite</string>
+    <string name="authenticate_subtitle">Authenticate to manage App Lock</string>
+    <string name="search_apps">Search apps</string>
+    <string name="app_lock_loading">Loading your apps…</string>
+    <string name="app_lock_count">%1$d protected · %2$d available</string>
+    <string name="app_lock_empty">No matching apps</string>
+    <string name="app_lock_unavailable">App Lock is unavailable in this build.</string>
+    <string name="app_lock_changed">App Lock updated</string>
+    <string name="app_lock_change_unavailable">This app cannot be changed right now.</string>
+    <string name="app_lock_native_behavior">Protected apps require authentication when opened. They re-lock after you leave them or lock your phone. Android also protects their notification content and Recents previews, and removes their home-screen widgets and shortcuts.</string>
+    <string name="screen_lock_needed">Set a screen lock first</string>
+    <string name="screen_lock_needed_body">App Lock uses your phone\'s PIN, pattern or password and your enrolled 3D face.</string>
+    <string name="set_screen_lock">Set screen lock</string>
+    <string name="cancel">Cancel</string>
+    <string name="ir_permission">Allow camera access to view infrared.</string>
+    <string name="grant_camera">Allow camera</string>
+    <string name="ir_searching">Finding infrared sensors…</string>
+    <string name="ir_unavailable">No accessible infrared stream was found. This build\'s camera provider may not expose it.</string>
+    <string name="ir_not_floral">Infrared Camera is available on Pixel 4 and Pixel 4 XL.</string>
+    <string name="ir_busy">The infrared camera is busy. Finish Face Unlock or close the other camera, then try again.</string>
+    <string name="ir_error">Couldn\'t start this infrared stream. Try the other sensor or retry.</string>
+    <string name="ir_active">Infrared camera %1$s · %2$d × %3$d</string>
+    <string name="ir_preview">Live infrared camera preview</string>
+    <string name="ir_note">This shows reflected infrared light, not temperature. Brightness depends on available infrared light.</string>
+    <string name="ir_retry">Retry</string>
+    <string name="ir_switch">Switch sensor</string>
+    <string name="ir_save">Save photo</string>
+    <string name="ir_saved">Saved to Pictures/HeckerSuite</string>
+    <string name="ir_save_failed">Couldn\'t save this photo.</string>
+    <string name="back">Back</string>
+</resources>

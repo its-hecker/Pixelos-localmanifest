@@ -1,0 +1,2 @@
+# Platform App Lock fields/methods are accessed reflectively for SDK compatibility.
+-keep class org.hecker.suite.NativeAppLock { *; }

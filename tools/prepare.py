@@ -1,123 +1,175 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Prepare the real Floral plugins against the selected PixelOS configuration."""
+"""Guarded, reversible access wiring for Android 17 native App Lock."""
 
 import argparse
-import json
+from datetime import datetime, timezone
 from pathlib import Path
-import subprocess
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 
-from camera_install import configure as configure_camera, SOURCE as CAMERA_SOURCE
-from validate import camera_prebuilt, replaced_vendor_installers, motion_permissions, hardware_setup
-from google_camera import prepare as prepare_google_camera
+
+ROOT = Path(__file__).resolve().parents[1]
+FRAMEWORK = Path("frameworks/base")
+ANDROID = "{http://schemas.android.com/apk/res/android}"
+PERMISSION = "android.permission.HECKER_SUITE_APP_LOCK"
+HELPER = "services/core/java/com/android/server/pm/HeckerSuiteAppLockAccess.java"
+
+MANIFEST_OLD = '    <permission android:name="android.permission.LOCK_APPS"'
+MANIFEST_NEW = '''    <!-- @hide Hecker's Suite may request the native authenticated App Lock setup flow.
+         Package identity is additionally checked by HeckerSuiteAppLockAccess. -->
+    <permission android:name="android.permission.HECKER_SUITE_APP_LOCK"
+        android:protectionLevel="signature"
+        android:featureFlag="android.security.app_lock_apis" />
+
+    <permission android:name="android.permission.LOCK_APPS"'''
+
+AIDL_OLD = '''    @EnforcePermission("LOCK_APPS")
+    @nullable PendingIntent getEnableAppLockIntentForPackage(String packageName, boolean enabled);'''
+AIDL_NEW = '''    @EnforcePermission(anyOf={"LOCK_APPS", "HECKER_SUITE_APP_LOCK"})
+    @nullable PendingIntent getEnableAppLockIntentForPackage(String packageName, boolean enabled);'''
+
+PMS_OLD = '''        @android.annotation.EnforcePermission(Manifest.permission.LOCK_APPS)
+        @Nullable
+        public PendingIntent getEnableAppLockIntentForPackage(String pkgName, boolean enabled) {
+            getEnableAppLockIntentForPackage_enforcePermission();'''
+PMS_NEW = '''        @android.annotation.EnforcePermission(anyOf = {Manifest.permission.LOCK_APPS,
+                "android.permission.HECKER_SUITE_APP_LOCK"})
+        @Nullable
+        public PendingIntent getEnableAppLockIntentForPackage(String pkgName, boolean enabled) {
+            getEnableAppLockIntentForPackage_enforcePermission();
+            if (mContext.checkCallingPermission(Manifest.permission.LOCK_APPS)
+                    != PackageManager.PERMISSION_GRANTED
+                    && !HeckerSuiteAppLockAccess.isSuite(mContext, Binder.getCallingUid())) {
+                throw new SecurityException("Only the privileged Hecker Suite may use Suite access");
+            }'''
+
+COMPUTER_OLD = '''            } else if (!hasPermission(Manifest.permission.LOCK_APPS, Binder.getCallingUid())) {'''
+COMPUTER_NEW = '''            } else if (!hasPermission(Manifest.permission.LOCK_APPS, Binder.getCallingUid())
+                    && !HeckerSuiteAppLockAccess.isSuite(mContext, Binder.getCallingUid())) {'''
+
+PATCHES = {
+    "core/res/AndroidManifest.xml": (MANIFEST_OLD, MANIFEST_NEW),
+    "core/java/android/content/pm/IPackageManager.aidl": (AIDL_OLD, AIDL_NEW),
+    "services/core/java/com/android/server/pm/PackageManagerService.java": (PMS_OLD, PMS_NEW),
+    "services/core/java/com/android/server/pm/ComputerEngine.java": (COMPUTER_OLD, COMPUTER_NEW),
+}
+
+CAPABILITIES = {
+    "core/java/android/content/pm/PackageManager.java": [
+        "getEnableAppLockIntentForPackage", "GET_APP_LOCK_INFO = 1L << 35"],
+    "core/java/android/content/pm/ApplicationInfo.java": ["isAppLockSupported", "isAppLockEnabled"],
+    "core/java/android/security/flags.aconfig": ['name: "app_lock_apis"', 'name: "app_lock_core"'],
+    "core/java/com/android/internal/app/LockedAppActivity.java": [
+        "Authenticators.BIOMETRIC_STRONG | Authenticators.DEVICE_CREDENTIAL",
+        "setAppLockEnabledPackageSuccessfullyAuthenticated"],
+    "core/java/com/android/internal/app/AppLockActivity.java": [
+        "setPackageAppLockEnabled", "Authenticators.BIOMETRIC_STRONG"],
+    "services/core/java/com/android/server/wm/ActivityStartInterceptor.java": [
+        "interceptLockedByAppLockPackageIfNeeded", "createIntentSenderForOriginalIntent"],
+    "services/core/java/com/android/server/wm/AppLockController.java": [
+        "setHiddenWhileLockedByAppLock", "isPackageLockedByAppLockLocked"],
+    "services/core/java/com/android/server/am/AppLockLocalService.java": [
+        "DeviceLockedStateListener", "setAppLockEnabledPackageSuccessfullyAuthenticated"],
+    "services/core/java/com/android/server/pm/AppLockPackageHelper.java": [
+        "PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT", "isDeviceSecure"],
+}
 
 
-OVERLAY_ROOTS = [
-    "vendor/lineage/overlay/common",
-    "vendor/custom/overlay/common",
-    "device/google/coral/overlay",
-    "device/google/coral/overlay-lineage",
-    "device/google/coral/coral/overlay",
-]
+def replace_guarded(content, old, new, relative, revert=False):
+    # The new manifest text intentionally includes the old anchor at its end.
+    if new in content:
+        if content.count(new) != 1:
+            raise ValueError("Duplicate Suite patch in " + relative)
+        return content.replace(new, old, 1) if revert else content
+    if content.count(old) != 1:
+        raise ValueError("Unfamiliar source; review instead of forcing: " + relative)
+    return content if revert else content.replace(old, new, 1)
 
 
-def active_arrays(rom, package, array):
-    """Selected static overlays, in order from common to device-specific."""
-    files = []
-    for root in OVERLAY_ROOTS:
-        directory = rom / root / package / "res/values"
-        for file in sorted(directory.glob("*.xml")):
-            if any(node.get("name") == array for node in ET.parse(file).getroot()):
-                files.append(file)
-    # PixelOS also selects this framework RRO from vendor/custom/config/common.mk.
-    if package == "frameworks/base/core/res":
-        directory = rom / "vendor/custom/overlay/rro_packages/FrameworkOverlayCustom/res/values"
-        for file in sorted(directory.glob("*.xml")):
-            if any(node.get("name") == array for node in ET.parse(file).getroot()):
-                files.append(file)
-    return files
+def plan(rom, revert=False):
+    base = rom / FRAMEWORK
+    if not revert:
+        for relative, markers in CAPABILITIES.items():
+            content = (base / relative).read_text()
+            if not all(marker in content for marker in markers):
+                raise ValueError("Missing reviewed Android 17 App Lock interface: " + relative)
+        manifest = ET.parse(base / "core/res/AndroidManifest.xml").getroot()
+        native = [p for p in manifest.findall("permission")
+                  if p.get(ANDROID + "name") == "android.permission.LOCK_APPS"]
+        if len(native) != 1 or native[0].get(ANDROID + "protectionLevel") != "internal|role|recents":
+            raise ValueError("Native LOCK_APPS protection changed; review before integration")
+    changes = {}
+    for relative, (old, new) in PATCHES.items():
+        path = base / relative
+        current = path.read_text()
+        target = replace_guarded(current, old, new, relative, revert)
+        if target != current:
+            changes[path] = target
+    helper = base / HELPER
+    expected = (ROOT / "framework/HeckerSuiteAppLockAccess.java").read_text()
+    if helper.exists() and helper.read_text() != expected:
+        raise ValueError("Preserving an unfamiliar Suite access helper: " + str(helper))
+    if revert:
+        if helper.exists(): changes[helper] = None
+    elif not helper.exists():
+        changes[helper] = expected
+    return changes
 
 
-def run(rom, plugin, tool, *arguments):
-    subprocess.run([sys.executable, str(rom / plugin / "tools" / tool), *map(str, arguments)],
-                   cwd=rom, check=True)
-
-
-def prepare(rom, offline=False, allowlists=(), biometrics=()):
-    motion = "vendor/hecker/floral/motionsense"
-    face = "vendor/hecker/floral/faceid"
-    required = [
-        "device/google/coral/custom_coral.mk",
-        "device/google/coral/BoardConfig-common.mk",
-        "vendor/google/coral/Android.bp",
-        CAMERA_SOURCE,
-        "vendor/google/coral/proprietary/vendor/firmware/faceauth_config.yaml",
-        "vendor/google/coral/proprietary/vendor/firmware/faceauth_v1.mdt",
-        "vendor/custom/config/common_full_phone.mk",
-        "vendor/lineage/overlay/common/frameworks/base/packages/SystemUI/res/values/config.xml",
-        "frameworks/base/packages/SystemUI/res/values/config.xml",
-        "frameworks/base/core/res/res/values/config.xml",
-        motion + "/tools/prepare.py", face + "/tools/prepare.py",
-    ]
-    missing = [relative for relative in required if not (rom / relative).is_file()]
-    if missing:
-        raise ValueError("Missing source inputs:\n  " + "\n  ".join(missing)
-                         + "\nRun repo sync, then if tracked files are still absent run:"
-                         + "\n  python3 .repo/local_manifests/tools/restore_checkout.py --restore")
-    product = (rom / "device/google/coral/custom_coral.mk").read_text()
-    if "TARGET_FACE_UNLOCK_SUPPORTED := false" not in product:
-        raise ValueError("Disable PixelOS ParanoidSense before using the IR Face HAL")
-    camera_prebuilt(rom)
-    replaced_vendor_installers(rom)
-    motion_permissions(rom)
-    hardware_setup(rom)
-    # Keep source modules available for dependencies, but export only the
-    # selected stock prebuilt's full install rules to Make.
-    print("Coral camera install ownership:", configure_camera(rom, write=True))
-    # Refuse unfamiliar framework methods before making any framework changes.
-    run(rom, face, "apply_framework_fixes.py", "--rom-root", rom, "--check")
-    fetch_arguments = ["--verify-only"] if offline else []
-    for plugin in [motion, face]:
-        run(rom, plugin, "fetch_prebuilts.py", *fetch_arguments)
-        run(rom, plugin, "check_port.py")
-    run(rom, face, "apply_framework_fixes.py", "--rom-root", rom, "--apply")
-    motion_files = active_arrays(rom, "frameworks/base/packages/SystemUI", "config_pluginAllowlist")
-    face_files = active_arrays(rom, "frameworks/base/core/res", "config_biometric_sensors")
-    motion_files += [path if path.is_absolute() else rom / path for path in allowlists]
-    face_files += [path if path.is_absolute() else rom / path for path in biometrics]
-    motion_arguments = ["--rom-root", rom, "--policy-dir", rom / "device/google/coral/sepolicy"]
-    for path in motion_files:
-        motion_arguments += ["--allowlist-xml", path]
-    run(rom, motion, "prepare.py", *motion_arguments)
-    face_arguments = ["--rom-root", rom, "--vendor-tree", rom / "vendor/google/coral"]
-    for path in face_files:
-        face_arguments += ["--biometrics-xml", path]
-    run(rom, face, "prepare.py", *face_arguments)
-    for plugin in [motion, face]:
-        run(rom, plugin, "verify_ready.py")
-    prepare_google_camera(rom, offline=offline)
-    print("PixelOS Floral plugin preparation passed.")
-    print("Motion allowlist overlays:", *[str(p.relative_to(rom)) for p in motion_files], sep="\n  ")
-    print("Face sensor overlays:", *[str(p.relative_to(rom)) for p in face_files], sep="\n  ")
-    profile = json.loads((rom / face / "generated/profile.json").read_text())
-    print("Hardware biometric sensors:", profile["sensors"])
+def apply(rom, mode):
+    changes = plan(rom, mode == "revert")
+    if mode == "verify":
+        if changes:
+            raise ValueError("Suite access patches are missing; run tools/prepare.py --apply")
+        print("Hecker Suite native App Lock access: already applied and verified")
+        return
+    if mode == "check":
+        print("Hecker Suite native App Lock access:", "ready to apply" if changes else "already applied")
+        return
+    if changes:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        backup = rom / "out/hecker-suite-source-backups" / stamp
+        # Validate the complete plan before changing any file. Back up original tracked content.
+        for path in changes:
+            if path.exists():
+                destination = backup / path.relative_to(rom)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path, destination)
+        written = []
+        originals = {path: path.read_text() if path.exists() else None for path in changes}
+        try:
+            for path, target in changes.items():
+                if target is None:
+                    path.unlink()
+                else:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    temporary = path.with_suffix(path.suffix + ".hecker-tmp")
+                    temporary.write_text(target)
+                    temporary.replace(path)
+                written.append(path)
+        except OSError:
+            for path in reversed(written):
+                original = originals[path]
+                if original is None: path.unlink(missing_ok=True)
+                else: path.write_text(original)
+            raise
+    print("Hecker Suite native App Lock access:", "reverted" if mode == "revert" else "applied")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rom-root", type=Path, default=Path.cwd())
-    parser.add_argument("--offline", action="store_true", help="Use already cached, checksum-verified binaries")
-    parser.add_argument("--allowlist-xml", type=Path, action="append", default=[],
-                        help="Additional active SystemUI overlays, in increasing priority")
-    parser.add_argument("--biometrics-xml", type=Path, action="append", default=[],
-                        help="Additional active framework overlays, in increasing priority")
+    group = parser.add_mutually_exclusive_group(required=True)
+    for mode in ("check", "apply", "verify", "revert"):
+        group.add_argument("--" + mode, action="store_true")
     args = parser.parse_args()
+    mode = next(mode for mode in ("check", "apply", "verify", "revert") if getattr(args, mode))
     try:
-        prepare(args.rom_root.resolve(), args.offline, args.allowlist_xml, args.biometrics_xml)
-    except (OSError, ValueError, ET.ParseError, subprocess.CalledProcessError) as error:
-        print("PixelOS Floral setup:", error, file=sys.stderr)
+        apply(args.rom_root.resolve(), mode)
+    except (ValueError, OSError, ET.ParseError) as error:
+        print("Hecker Suite setup:", error, file=sys.stderr)
         return 1
     return 0
 

@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: Apache-2.0
+// Deliberately use the global namespace, like other framework feature plugins.
+package {
+    default_applicable_licenses: ["hecker_suite_license"],
+}
+
+license {
+    name: "hecker_suite_license",
+    license_kinds: ["SPDX-license-identifier-Apache-2.0"],
+    license_text: ["LICENSE"],
+}
+
+android_app {
+    name: "HeckerSuite",
+    manifest: "app/AndroidManifest.xml",
+    srcs: ["app/src/**/*.java"],
+    resource_dirs: ["app/res"],
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    system_ext_specific: true,
+    static_libs: ["lottie"],
+    required: ["HeckerSuitePrivappPermissions"],
+    optimize: {
+        proguard_flags_files: ["app/proguard.flags"],
+    },
+}
+
+prebuilt_etc {
+    name: "HeckerSuitePrivappPermissions",
+    src: "configs/privapp-permissions-hecker-suite.xml",
+    filename_from_src: true,
+    sub_dir: "permissions",
+    system_ext_specific: true,
+}
+
+aconfig_values {
+    name: "hecker_suite_security_flags",
+    package: "android.security",
+    srcs: ["flags/security/*_flag_values.textproto"],
+}
+
+aconfig_value_set {
+    name: "hecker_suite_aconfig_value_set",
+    values: ["hecker_suite_security_flags"],
+}

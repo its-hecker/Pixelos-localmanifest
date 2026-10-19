@@ -1,0 +1,37 @@
+{
+  "android.jar": {
+    "url": "https://android.googlesource.com/platform/prebuilts/sdk/+/3af7c93524be6f51e092b87b17f009f13ee98b43/current/public/android.jar?format=TEXT",
+    "base64": true,
+    "sha256": "2680325c498b0625da42fe1269973da19cd3e4e70e65574e919fd205c1e6d4d2"
+  },
+  "lottie.aar": {
+    "url": "https://repo1.maven.org/maven2/com/airbnb/android/lottie/6.5.2/lottie-6.5.2.aar",
+    "base64": false,
+    "sha256": "ba33ecc031f7e67bd5ab161bd01c6ec92e0607761ae076da26a2c5bf2577bb0c"
+  },
+  "appcompat.aar": {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.0/appcompat-1.7.0.aar",
+    "base64": false,
+    "sha256": "67189713b30a3fab6971713cc5fab1cb7f022bcf648a257563715c91d719d584"
+  },
+  "core.aar": {
+    "url": "https://dl.google.com/dl/android/maven2/androidx/core/core/1.13.1/core-1.13.1.aar",
+    "base64": false,
+    "sha256": "2c27de199535675005553066597a4b20fa1eea7c228ab4ef6b32b5fe39ca1f59"
+  },
+  "aidl": {
+    "url": "https://android.googlesource.com/platform/prebuilts/build-tools/+/9b6c8c6a2f582a9d7817fd8275c8014959c60cc4/linux-x86/bin/aidl?format=TEXT",
+    "base64": true,
+    "sha256": "ef7dbae179835f556eeda07c09820d392727cc19db0e41218b9b20e348b4dfe5"
+  },
+  "lib64/libc++.so": {
+    "url": "https://android.googlesource.com/platform/prebuilts/build-tools/+/9b6c8c6a2f582a9d7817fd8275c8014959c60cc4/linux-x86/lib64/libc++.so?format=TEXT",
+    "base64": true,
+    "sha256": "613fd08cc473b0a3ebbe51550cf5166c1c7561af7d8562051e10910335cd35f4"
+  },
+  "aapt2-linux.jar": {
+    "url": "https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/8.7.3-12006047/aapt2-8.7.3-12006047-linux.jar",
+    "base64": false,
+    "sha256": "028916a040b58f34c9c89984e1bc48f8da6581662014f2b66391860def8b9c36"
+  }
+}

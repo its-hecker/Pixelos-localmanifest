@@ -1,0 +1,21 @@
+name: Hecker Suite plugin checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify source, access boundary, raw decoding and patch safety
+        run: bash tests/run_host_tests.sh
+      - name: Compile app Java and link Android resources with locked dependencies
+        run: python3 tools/compile_sdk.py

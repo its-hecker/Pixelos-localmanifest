@@ -1,0 +1,6 @@
+Hecker's Suite — Android 17 Floral plugin
+Plugin implementation, integration and original Lottie animations: Hecker.
+Android's native App Lock, BiometricPrompt, Camera2 and platform UI are supplied
+by AOSP and PixelOS, under their original licenses. The Lottie runtime is supplied
+by the ROM's existing external/lottie module under Apache-2.0.
+No Face ID templates, calibration data, proprietary firmware or photos are included.
