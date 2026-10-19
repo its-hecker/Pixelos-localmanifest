@@ -47,6 +47,6 @@
   <!-- Standalone plugin sources live on a dedicated plugin-only source branch. -->
   <project name="its-hecker/Pixelos-localmanifest"
            path="vendor/hecker/floral/suite" remote="floral-github"
-           revision="d90b787671475c8462d4ffda727ac8270d0e3372"
+           revision="5ed119c35b8b78b2b041fd23cbb8917ca7e98446"
            upstream="refs/heads/hecker-suite-plugin" dest-branch="hecker-suite-plugin" />
 </manifest>

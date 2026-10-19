@@ -19,6 +19,11 @@ def check_suite(rom, output):
     original = rom / "vendor/hecker/floral/suite" / relative
     if not installed.is_file() or installed.read_bytes() != original.read_bytes():
         raise ValueError("Built system_ext image is missing the exact Suite permission allowlist")
+    relative = "configs/hecker-suite-freeform.xml"
+    installed = output / "system_ext/etc/permissions/hecker-suite-freeform.xml"
+    original = rom / "vendor/hecker/floral/suite" / relative
+    if not installed.is_file() or installed.read_bytes() != original.read_bytes():
+        raise ValueError("Built system_ext image is missing the Suite freeform-window feature")
 
 
 def check_motion_sense(output):
@@ -46,7 +51,7 @@ def check(rom, output):
     check_motion_sense(output)
     check_suite(rom, output)
     print("Built output: camera provider binary/init/VINTF, original ten-APK Google Camera set "
-          "and Motion Sense country override, Hecker Suite APK/permissions: PASS")
+          "and Motion Sense country override, Hecker Suite APK/permissions/freeform: PASS")
 
 
 if __name__ == "__main__":

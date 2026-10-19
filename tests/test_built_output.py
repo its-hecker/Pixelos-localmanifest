@@ -83,6 +83,12 @@ class BuiltOutputTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Suite permission"):
                 check_suite(root, output)
             installed.write_bytes(original.read_bytes())
+            with self.assertRaisesRegex(ValueError, "freeform-window"):
+                check_suite(root, output)
+            feature = root / "vendor/hecker/floral/suite/configs/hecker-suite-freeform.xml"
+            feature.write_text('<permissions><feature name="android.software.freeform_window_management" /></permissions>')
+            installed_feature = output / "system_ext/etc/permissions/hecker-suite-freeform.xml"
+            installed_feature.write_bytes(feature.read_bytes())
             check_suite(root, output)
 
 

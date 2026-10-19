@@ -1,5 +1,5 @@
 {
-  "checked_on": "2026-10-18",
+  "checked_on": "2026-10-20",
   "pixelos_manifest": {
     "repository": "PixelOS-AOSP/android_manifest",
     "branch": "seventeen",
@@ -105,7 +105,16 @@
         "core/res/AndroidManifest.xml",
         "core/java/android/content/pm/IPackageManager.aidl",
         "services/core/java/com/android/server/pm/PackageManagerService.java",
-        "services/core/java/com/android/server/pm/ComputerEngine.java"
+        "services/core/java/com/android/server/pm/ComputerEngine.java",
+        "core/java/android/app/ActivityTaskManager.java",
+        "core/java/android/app/TaskStackListener.java",
+        "core/java/android/app/ActivityOptions.java",
+        "core/java/android/app/TaskInfo.java",
+        "core/java/android/content/pm/ActivityInfo.java",
+        "core/java/android/view/WindowManager.java",
+        "core/java/android/window/TaskFpsCallback.java",
+        "core/java/android/window/ScreenCapture.java",
+        "core/java/android/hardware/display/DisplayManager.java"
       ]
     },
     "hardware/google/camera": {

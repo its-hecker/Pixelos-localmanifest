@@ -405,6 +405,8 @@ def test(rom, fetch=True):
     require(profiles(rom) == first, "Repeated setup changed generated outputs")
     check_plugin_blueprints(rom)
     check_suite_motion_navigation(rom)
+    subprocess.run([sys.executable, str(rom / "vendor/hecker/floral/suite/tools/check_source.py")],
+                   cwd=rom, check=True)
     check_face_library_ownership(rom)
     check_native_installs(rom)
     check_product_make(rom)

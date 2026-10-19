@@ -4,12 +4,20 @@ This branch integrates **Hecker’s Suite** into PixelOS on a separate
 `features-experimental` device branch. Stable `main` sources are unchanged.
 
 The Suite appears at **Settings → System → Hecker’s Suite** and contains App Lock
-with original Lottie animations, Motion Sense settings and an infrared camera viewer.
+with original Lottie animations, Motion Sense settings, Gaming mode and an infrared camera viewer.
 Motion Sense opens its existing full settings page from Suite; its separate System
 settings entry is removed in this experimental build. Its controls and Quick Settings
 tile are retained. App Lock reuses the
 existing 3D Face ID port or device credentials. Infrared streaming still needs
 validation on the actual Coral camera provider.
+
+Gaming mode adds an automatically detected game library, an in-game edge dashboard,
+native floating app shortcuts, real game-task FPS, battery temperature, Wi-Fi status,
+volume/temporary-brightness sliders and cached-app cleanup. It also includes Focus,
+screenshots, touch lock and consent-based video-only recording. The hub offers
+manual game selection and accent/opacity/edge customization. Shortcuts require
+resizable apps and native WM Shell freeform windows; their feature XML is installed
+with Suite. Native authentication is retained. Full ROM and phone testing is pending.
 
 Plugin-only sources are maintained on this repository’s `hecker-suite-plugin`
 branch and checked out at `vendor/hecker/floral/suite`. The manifest pins the exact
