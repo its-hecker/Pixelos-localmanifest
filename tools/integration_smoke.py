@@ -154,6 +154,46 @@ def check_plugin_blueprints(rom):
     print("PASS: both generated plugin namespaces precede their license modules.")
 
 
+def check_suite_motion_navigation(rom):
+    settings = rom / "vendor/hecker/floral/motionsense/settings"
+    relative = "generated/hecker-suite/AndroidManifest.xml"
+    blueprint = (settings / "Android.bp").read_text()
+    require('manifest: "' + relative + '"' in blueprint,
+            "Motion Sense must build with the Suite navigation manifest")
+    original = ET.parse(settings / "AndroidManifest.xml").getroot()
+    effective = ET.parse(settings / relative).getroot()
+    android = "{http://schemas.android.com/apk/res/android}"
+    require(original.attrib == effective.attrib,
+            "Suite navigation changed Motion Sense's package or shared UID")
+    require(not any(node.get(android + "name") == "com.android.settings.action.IA_SETTINGS"
+                    for node in effective.findall(".//action")),
+            "Motion Sense still exposes a duplicate standalone Settings entry")
+    require(any(node.get(android + "name") == "com.android.settings.action.IA_SETTINGS"
+                for node in original.findall(".//action")),
+            "The original standalone Motion Sense manifest was changed")
+    def canonical(node):
+        return ET.canonicalize(ET.tostring(node, encoding="unicode"), strip_text=True)
+    # All non-dashboard components, permissions and package visibility remain identical.
+    for before, after in zip(list(original), list(effective)):
+        if before.tag != "application":
+            require(canonical(before) == canonical(after), "Motion Sense permissions or queries changed")
+    before_app, after_app = original.find("application"), effective.find("application")
+    require(before_app.attrib == after_app.attrib and len(before_app) == len(after_app),
+            "Motion Sense application settings or component count changed")
+    for before, after in zip(before_app, after_app):
+        if before.get(android + "name") == ".motionsense.MotionSenseActivity":
+            require(before.attrib == after.attrib and after.get(android + "exported") == "true",
+                    "Suite must be able to open the existing Motion Sense activity")
+        else:
+            require(canonical(before) == canonical(after),
+                    "Suite navigation changed a Motion Sense control or Quick Settings tile")
+    suite = rom / "vendor/hecker/floral/suite"
+    source = (suite / "app/src/org/hecker/suite/SuiteActivity.java").read_text()
+    require("org.hecker.floral.motionsense.motionsense.MotionSenseActivity" in source,
+            "Suite does not open the original Motion Sense settings activity")
+    print("PASS: Suite opens Motion Sense; duplicate entry removed, controls/tile/identity preserved.")
+
+
 def check_face_library_ownership(rom):
     face = rom / "vendor/hecker/floral/faceid"
     bp = (face / "Android.bp").read_text()
@@ -364,6 +404,7 @@ def test(rom, fetch=True):
     prepare(rom, offline=True)
     require(profiles(rom) == first, "Repeated setup changed generated outputs")
     check_plugin_blueprints(rom)
+    check_suite_motion_navigation(rom)
     check_face_library_ownership(rom)
     check_native_installs(rom)
     check_product_make(rom)

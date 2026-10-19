@@ -4,7 +4,10 @@ This branch integrates **Hecker’s Suite** into PixelOS on a separate
 `features-experimental` device branch. Stable `main` sources are unchanged.
 
 The Suite appears at **Settings → System → Hecker’s Suite** and contains App Lock
-with original Lottie animations and an infrared camera viewer. App Lock reuses the
+with original Lottie animations, Motion Sense settings and an infrared camera viewer.
+Motion Sense opens its existing full settings page from Suite; its separate System
+settings entry is removed in this experimental build. Its controls and Quick Settings
+tile are retained. App Lock reuses the
 existing 3D Face ID port or device credentials. Infrared streaming still needs
 validation on the actual Coral camera provider.
 
