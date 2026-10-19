@@ -92,7 +92,20 @@
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java",
         "services/core/java/com/android/server/biometrics/sensors/face/hidl/HidlToAidlSensorAdapter.java",
         "services/core/java/com/android/server/biometrics/sensors/SensorList.java",
-        "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlSession.java"
+        "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlSession.java",
+        "core/java/android/content/pm/PackageManager.java",
+        "core/java/android/content/pm/ApplicationInfo.java",
+        "core/java/android/security/flags.aconfig",
+        "core/java/com/android/internal/app/LockedAppActivity.java",
+        "core/java/com/android/internal/app/AppLockActivity.java",
+        "services/core/java/com/android/server/wm/ActivityStartInterceptor.java",
+        "services/core/java/com/android/server/wm/AppLockController.java",
+        "services/core/java/com/android/server/am/AppLockLocalService.java",
+        "services/core/java/com/android/server/pm/AppLockPackageHelper.java",
+        "core/res/AndroidManifest.xml",
+        "core/java/android/content/pm/IPackageManager.aidl",
+        "services/core/java/com/android/server/pm/PackageManagerService.java",
+        "services/core/java/com/android/server/pm/ComputerEngine.java"
       ]
     },
     "hardware/google/camera": {
@@ -121,5 +134,12 @@
         "rootdir/init.rc"
       ]
     }
+  },
+  "hecker_suite": {
+    "source_branch": "hecker-suite-plugin",
+    "integration_branch": "features-experimental",
+    "release": "hecker_suite",
+    "base_release": "cp2a",
+    "status": "Source validation only; full ROM build and phone tests required"
   }
 }

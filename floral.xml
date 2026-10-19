@@ -10,10 +10,11 @@
   <remove-project path="vendor/lunaris/dolby" optional="true" />
   <remove-project path="vendor/hecker/floral/motionsense" optional="true" />
   <remove-project path="vendor/hecker/floral/faceid" optional="true" />
+  <remove-project path="vendor/hecker/floral/suite" optional="true" />
 
   <project name="its-hecker/pixelos_android_device_google_coral"
-           path="device/google/coral" remote="floral-github" revision="86de5f048b6f1a3ba3ef723aee2b9446dd872601"
-           upstream="refs/heads/main" dest-branch="main" />
+           path="device/google/coral" remote="floral-github" revision="0f7e292d59450acc0ff125e93ac7fd9351f58265"
+           upstream="refs/heads/features-experimental" dest-branch="features-experimental" />
   <project name="its-hecker/pixelos_proprietary_vendor_google_coral"
            path="vendor/google/coral" remote="floral-github" revision="fc4a5b6b20c40954c2ad99d543f8c1e61e86d03a"
            upstream="refs/heads/main" dest-branch="main" />
@@ -43,4 +44,9 @@
            path="vendor/hecker/floral/faceid" remote="floral-github"
            revision="d998995e1452d2c3d9882bfdf659e1db760a99be"
            upstream="refs/heads/main" dest-branch="main" />
+  <!-- Standalone plugin sources live on a dedicated plugin-only source branch. -->
+  <project name="its-hecker/Pixelos-localmanifest"
+           path="vendor/hecker/floral/suite" remote="floral-github"
+           revision="359fc73310f389ed1556fcedcfe86bb04dd20f6a"
+           upstream="refs/heads/hecker-suite-plugin" dest-branch="hecker-suite-plugin" />
 </manifest>

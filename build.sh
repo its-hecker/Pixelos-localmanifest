@@ -31,7 +31,8 @@ git -C vendor/google/coral lfs pull
 python3 "$floral_setup_dir/tools/prepare.py" "$@"
 python3 "$floral_setup_dir/tools/validate.py" --rom-root "$PWD"
 source build/envsetup.sh
-breakfast coral "${PIXEL_BUILD_VARIANT:-userdebug}"
+# Separate release flags keep native App Lock out of the stable cp2a build.
+lunch "custom_coral-hecker_suite-${PIXEL_BUILD_VARIANT:-userdebug}"
 floral_product_out="$(get_build_var PRODUCT_OUT)"
 floral_stale_camera=false
 for floral_partition in system system_ext product vendor; do

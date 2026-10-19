@@ -1,3 +1,50 @@
+# PixelOS Floral — Hecker’s Suite experimental features
+
+This branch integrates **Hecker’s Suite** into PixelOS on a separate
+`features-experimental` device branch. Stable `main` sources are unchanged.
+
+The Suite appears at **Settings → System → Hecker’s Suite** and contains App Lock
+with original Lottie animations and an infrared camera viewer. App Lock reuses the
+existing 3D Face ID port or device credentials. Infrared streaming still needs
+validation on the actual Coral camera provider.
+
+Plugin-only sources are maintained on this repository’s `hecker-suite-plugin`
+branch and checked out at `vendor/hecker/floral/suite`. The manifest pins the exact
+plugin and experimental device commits. The separate `hecker_suite` release
+inherits `cp2a` and enables native App Lock without changing stable release flags.
+
+From your existing PixelOS source checkout:
+
+```bash
+cd ~/pixelos
+git -C .repo/local_manifests fetch origin features-experimental
+git -C .repo/local_manifests switch features-experimental
+git -C .repo/local_manifests pull --ff-only origin features-experimental
+repo sync -c -j8 --fail-fast device/google/coral vendor/hecker/floral/suite
+git -C kernel/google/msm-4.14 submodule update --init --recursive
+bash .repo/local_manifests/build.sh
+```
+
+The experimental build script prepares the existing Motion Sense/Face ID plugins,
+applies the guarded Suite access patch, and selects
+`custom_coral-hecker_suite-userdebug`. A complete ROM build and flash is required;
+installing only the APK cannot enable the framework feature. The plugin README
+contains prerequisites, permission design, IR behavior and phone tests.
+
+Before returning this workspace to `main`, run:
+
+```bash
+python3 vendor/hecker/floral/suite/tools/prepare.py --revert
+```
+
+Then switch/sync the stable manifest and use its normal build script. Disable test
+app locks before flashing back to a build without native App Lock enabled.
+
+## Stable base reference and troubleshooting
+
+The documentation below describes the underlying stable Floral base. Use the
+experimental branch/release commands above for Hecker’s Suite.
+
 # PixelOS Android 17 for Pixel 4 XL
 
 Stable source integration for **Pixel 4 XL (`coral`)**, using PixelOS `seventeen`,

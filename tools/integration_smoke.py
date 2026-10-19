@@ -66,12 +66,14 @@ def check_product_make(rom):
         "include device/google/coral/camera/camera.mk",
         "include " + motion + "/motionsense.mk",
         "include " + face + "/faceid.mk",
+        "include vendor/hecker/floral/suite/suite.mk",
         "include " + motion + "/BoardConfigMotionSense.mk",
         "include " + face + "/BoardConfigFaceID.mk",
         "$(info MAKE_NAMESPACES=$(PRODUCT_SOONG_NAMESPACES))",
         "$(info MAKE_PACKAGES=$(PRODUCT_PACKAGES))",
         "$(info MAKE_COPIES=$(PRODUCT_COPY_FILES))",
         "$(info MAKE_POLICY=$(BOARD_VENDOR_SEPOLICY_DIRS))",
+        "$(info MAKE_RELEASE_MAPS=$(PRODUCT_RELEASE_CONFIG_MAPS))",
         ".PHONY: all", "all:", "\t@:",
     ]) + "\n"
     result = subprocess.run(["make", "--no-print-directory", "-f", "-", "all"],
@@ -88,6 +90,10 @@ def check_product_make(rom):
             set(packages), "Prepared plugin packages are missing")
     require("GoogleCameraCoral" in packages and "Aperture" not in packages,
             "Google Camera must replace Aperture in the resolved PixelOS product")
+    require("HeckerSuite" in packages and
+            "vendor/hecker/floral/suite/release/release_config_map.textproto" in
+            values.get("MAKE_RELEASE_MAPS", "").split(),
+            "Suite package and experimental release config are missing")
     require(not {"android.hardware.biometrics.face@1.0-service.google", "OsloFeedback"} &
             set(packages), "Replaced stock plugin packages were retained")
     require({"libbase-v33", "libcrypto-v33", "libstagefright_foundation-v33"} <= set(packages) and
@@ -314,7 +320,7 @@ def test(rom, fetch=True):
     if fetch:
         projects = {p.get("path"): p for p in ET.parse(ROOT / "floral.xml").getroot().findall("project")}
         for path in ["device/google/coral", "vendor/google/coral", "vendor/hecker/floral/motionsense",
-                     "vendor/hecker/floral/faceid"]:
+                     "vendor/hecker/floral/faceid", "vendor/hecker/floral/suite"]:
             project = projects[path]
             sparse = ["Android.bp", "coral-vendor.mk",
                       "proprietary/vendor/etc/init/android.hardware.camera.provider@2.7-service-google.rc",

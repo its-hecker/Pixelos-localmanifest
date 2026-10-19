@@ -48,6 +48,7 @@ def run(rom, plugin, tool, *arguments):
 def prepare(rom, offline=False, allowlists=(), biometrics=()):
     motion = "vendor/hecker/floral/motionsense"
     face = "vendor/hecker/floral/faceid"
+    suite = "vendor/hecker/floral/suite"
     required = [
         "device/google/coral/custom_coral.mk",
         "device/google/coral/BoardConfig-common.mk",
@@ -60,6 +61,7 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
         "frameworks/base/packages/SystemUI/res/values/config.xml",
         "frameworks/base/core/res/res/values/config.xml",
         motion + "/tools/prepare.py", face + "/tools/prepare.py",
+        suite + "/tools/prepare.py", suite + "/suite.mk",
     ]
     missing = [relative for relative in required if not (rom / relative).is_file()]
     if missing:
@@ -78,11 +80,13 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
     print("Coral camera install ownership:", configure_camera(rom, write=True))
     # Refuse unfamiliar framework methods before making any framework changes.
     run(rom, face, "apply_framework_fixes.py", "--rom-root", rom, "--check")
+    run(rom, suite, "prepare.py", "--rom-root", rom, "--check")
     fetch_arguments = ["--verify-only"] if offline else []
     for plugin in [motion, face]:
         run(rom, plugin, "fetch_prebuilts.py", *fetch_arguments)
         run(rom, plugin, "check_port.py")
     run(rom, face, "apply_framework_fixes.py", "--rom-root", rom, "--apply")
+    run(rom, suite, "prepare.py", "--rom-root", rom, "--apply")
     motion_files = active_arrays(rom, "frameworks/base/packages/SystemUI", "config_pluginAllowlist")
     face_files = active_arrays(rom, "frameworks/base/core/res", "config_biometric_sensors")
     motion_files += [path if path.is_absolute() else rom / path for path in allowlists]
@@ -98,6 +102,7 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
     for plugin in [motion, face]:
         run(rom, plugin, "verify_ready.py")
     prepare_google_camera(rom, offline=offline)
+    run(rom, suite, "prepare.py", "--rom-root", rom, "--verify")
     print("PixelOS Floral plugin preparation passed.")
     print("Motion allowlist overlays:", *[str(p.relative_to(rom)) for p in motion_files], sep="\n  ")
     print("Face sensor overlays:", *[str(p.relative_to(rom)) for p in face_files], sep="\n  ")

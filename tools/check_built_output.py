@@ -10,6 +10,17 @@ from camera_install import SERVICE
 from google_camera import verify_installed
 
 
+def check_suite(rom, output):
+    suite = output / "system_ext/priv-app/HeckerSuite/HeckerSuite.apk"
+    if not suite.is_file() or suite.stat().st_size == 0:
+        raise ValueError("Built system_ext image is missing HeckerSuite.apk")
+    relative = "configs/privapp-permissions-hecker-suite.xml"
+    installed = output / "system_ext/etc/permissions/privapp-permissions-hecker-suite.xml"
+    original = rom / "vendor/hecker/floral/suite" / relative
+    if not installed.is_file() or installed.read_bytes() != original.read_bytes():
+        raise ValueError("Built system_ext image is missing the exact Suite permission allowlist")
+
+
 def check_motion_sense(output):
     paths = [output / "product/etc/build.prop", output / "product/build.prop"]
     properties = next((path for path in paths if path.is_file()), None)
@@ -33,8 +44,9 @@ def check(rom, output):
         raise ValueError("Built vendor image is missing the camera VINTF declaration")
     verify_installed(rom, output)
     check_motion_sense(output)
+    check_suite(rom, output)
     print("Built output: camera provider binary/init/VINTF, original ten-APK Google Camera set "
-          "and Motion Sense country override: PASS")
+          "and Motion Sense country override, Hecker Suite APK/permissions: PASS")
 
 
 if __name__ == "__main__":

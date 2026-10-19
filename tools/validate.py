@@ -22,6 +22,7 @@ PROJECTS = {
     "vendor/lunaris/dolby": "its-hecker/vendor_lunaris_dolby",
     "vendor/hecker/floral/motionsense": "its-hecker/floral-motionsense-plugin",
     "vendor/hecker/floral/faceid": "its-hecker/floral-3D-faceid-plugin",
+    "vendor/hecker/floral/suite": "its-hecker/Pixelos-localmanifest",
 }
 
 
@@ -273,6 +274,12 @@ def source(rom):
                 "Plugin board policy is not included")
         subprocess.run([sys.executable, str(rom / relative / "tools/verify_ready.py")],
                        cwd=rom, check=True)
+    suite = "vendor/hecker/floral/suite"
+    suite_include = "$(call inherit-product, " + suite + "/suite.mk)"
+    require(suite_include in product and product.index(suite_include) > product.index(vendor),
+            "Experimental Hecker Suite product inheritance is missing")
+    subprocess.run([sys.executable, str(rom / suite / "tools/prepare.py"),
+                    "--rom-root", str(rom), "--verify"], cwd=rom, check=True)
     require(not (device / "faceunlock").exists(), "Integrated Face compatibility source was copied")
     require(not (device / "parts/src/org/lineageos/settings/motionsense").exists(),
             "Duplicate integrated Motion Sense settings were copied")

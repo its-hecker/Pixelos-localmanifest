@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from check_built_output import check, check_motion_sense, SERVICE
+from check_built_output import check, check_motion_sense, check_suite, SERVICE
 
 
 class BuiltOutputTests(unittest.TestCase):
@@ -37,7 +37,7 @@ class BuiltOutputTests(unittest.TestCase):
             properties = output / "product/etc/build.prop"
             properties.parent.mkdir(parents=True)
             properties.write_text("pixel.oslo.allowed_override=1\n")
-            with patch("check_built_output.verify_installed") as apks:
+            with patch("check_built_output.verify_installed") as apks, patch("check_built_output.check_suite"):
                 check(root, output)
                 apks.assert_called_once_with(root, output)
             init.write_text("service camera /wrong/binary\n")
@@ -62,6 +62,28 @@ class BuiltOutputTests(unittest.TestCase):
             legacy = output / "product/build.prop"
             properties.rename(legacy)
             check_motion_sense(output)
+
+    def test_suite_requires_installed_apk_and_matching_permission_xml(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "output"
+            with self.assertRaisesRegex(ValueError, "HeckerSuite.apk"):
+                check_suite(root, output)
+            apk = output / "system_ext/priv-app/HeckerSuite/HeckerSuite.apk"
+            apk.parent.mkdir(parents=True)
+            apk.write_bytes(b"suite test artifact")
+            with self.assertRaisesRegex(ValueError, "Suite permission"):
+                check_suite(root, output)
+            original = root / "vendor/hecker/floral/suite/configs/privapp-permissions-hecker-suite.xml"
+            original.parent.mkdir(parents=True)
+            original.write_text("<permissions />")
+            installed = output / "system_ext/etc/permissions/privapp-permissions-hecker-suite.xml"
+            installed.parent.mkdir(parents=True)
+            installed.write_text("<wrong />")
+            with self.assertRaisesRegex(ValueError, "Suite permission"):
+                check_suite(root, output)
+            installed.write_bytes(original.read_bytes())
+            check_suite(root, output)
 
 
 if __name__ == "__main__":
