@@ -25,6 +25,7 @@ class PreparationTests(unittest.TestCase):
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_text(old + "\n")
         (base / "core/res/AndroidManifest.xml").write_text('''<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+''' + prepare.MANIFEST_OLD + '''
     <permission android:name="android.permission.LOCK_APPS" android:protectionLevel="internal|role|recents" />
 </manifest>''')
 
@@ -38,6 +39,8 @@ class PreparationTests(unittest.TestCase):
         self.assertEqual(before, self.contents())
         prepare.apply(self.rom, "apply")
         applied = self.contents()
+        manifest = (self.rom / prepare.FRAMEWORK / "core/res/AndroidManifest.xml").read_text()
+        self.assertIn(prepare.MANIFEST_OLD + '\n    <permission android:name="android.permission.LOCK_APPS"', manifest)
         prepare.apply(self.rom, "verify")
         prepare.apply(self.rom, "apply")
         self.assertEqual(applied, self.contents())

@@ -58,7 +58,7 @@ def main():
         aapt.chmod(0o755)
     with tempfile.TemporaryDirectory() as temporary:
         output = Path(temporary)
-        from prepare import AIDL_NEW
+        from prepare import AIDL_NEW, MANIFEST_NEW
         probe = output / "aidl/suite/probe/IAccessProbe.aidl"
         probe.parent.mkdir(parents=True)
         probe.write_text("package suite.probe;\ninterface IAccessProbe {\n"
@@ -76,6 +76,20 @@ def main():
         run(aapt, "link", "-I", cache / "android.jar", "--manifest", ROOT / "app/AndroidManifest.xml",
             "--auto-add-overlay", "--java", output / "generated", "-o", output / "resources.apk",
             output / "resources.zip")
+        # Exercise aapt's real permission-Java generation. Inserting a permission between
+        # another permission and its documentation would silently lose @FlaggedApi metadata.
+        permission_manifest = output / "permission-manifest.xml"
+        permission_manifest.write_text(
+            '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="android">\n'
+            + MANIFEST_NEW.replace('android:featureFlag="android.security.app_lock_apis"', '')
+            + '\n<permission android:name="android.permission.LOCK_APPS" '
+            + 'android:protectionLevel="internal|role|recents"/><application/></manifest>')
+        run(aapt, "link", "-I", cache / "android.jar", "--manifest", permission_manifest,
+            "--java", output / "permission-generated", "-o", output / "permission-res.apk")
+        permission_java = (output / "permission-generated/android/Manifest.java").read_text()
+        assert '@android.annotation.FlaggedApi(android.security.Flags.FLAG_APP_LOCK_APIS)' in permission_java
+        assert 'HECKER_SUITE_APP_LOCK="android.permission.HECKER_SUITE_APP_LOCK"' in permission_java
+        assert "@hide Hecker's Suite" in permission_java
         (output / "classes").mkdir()
         classpath = os.pathsep.join(str(cache / name) for name in
                                   ("android.jar", "lottie.jar", "appcompat.jar", "core.jar"))

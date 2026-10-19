@@ -16,14 +16,19 @@ ANDROID = "{http://schemas.android.com/apk/res/android}"
 PERMISSION = "android.permission.HECKER_SUITE_APP_LOCK"
 HELPER = "services/core/java/com/android/server/pm/HeckerSuiteAppLockAccess.java"
 
-MANIFEST_OLD = '    <permission android:name="android.permission.LOCK_APPS"'
+MANIFEST_OLD = '''    <!-- Permission granted to apps holding the {@link android.app.role.RoleManager#ROLE_HOME} role
+         that allows them to enable app lock. This is also granted to the recents component, which
+         is typically the system launcher, to ensure a consistent user experience. App Lock is a
+         feature that allows users to require authentication before opening apps.
+         <p>Protection level: internal|role|recents
+         @FlaggedApi(android.security.Flags.FLAG_APP_LOCK_APIS) -->'''
 MANIFEST_NEW = '''    <!-- @hide Hecker's Suite may request the native authenticated App Lock setup flow.
          Package identity is additionally checked by HeckerSuiteAppLockAccess. -->
     <permission android:name="android.permission.HECKER_SUITE_APP_LOCK"
         android:protectionLevel="signature"
         android:featureFlag="android.security.app_lock_apis" />
 
-    <permission android:name="android.permission.LOCK_APPS"'''
+''' + MANIFEST_OLD
 
 AIDL_OLD = '''    @EnforcePermission("LOCK_APPS")
     @nullable PendingIntent getEnableAppLockIntentForPackage(String packageName, boolean enabled);'''
