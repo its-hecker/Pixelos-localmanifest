@@ -17,3 +17,6 @@ java -m jdk.compiler/com.sun.tools.javac.Main -d "$suite_test_output" \
     tests/host-stubs/android/os/Binder.java tests/host-stubs/android/os/UserHandle.java \
     framework/HeckerSuiteAppLockAccess.java tests/HeckerSuiteAccessTest.java
 java -cp "$suite_test_output" com.android.server.pm.HeckerSuiteAccessTest
+java -m jdk.compiler/com.sun.tools.javac.Main -d "$suite_test_output" \
+    app/src/org/hecker/suite/GamingPolicy.java tests/GamingPolicyTest.java
+java -cp "$suite_test_output" org.hecker.suite.GamingPolicyTest

@@ -20,7 +20,7 @@ android_app {
     privileged: true,
     system_ext_specific: true,
     static_libs: ["lottie"],
-    required: ["HeckerSuitePrivappPermissions"],
+    required: ["HeckerSuitePrivappPermissions", "HeckerSuiteFreeformFeature"],
     optimize: {
         proguard_flags_files: ["app/proguard.flags"],
     },
@@ -29,6 +29,14 @@ android_app {
 prebuilt_etc {
     name: "HeckerSuitePrivappPermissions",
     src: "configs/privapp-permissions-hecker-suite.xml",
+    filename_from_src: true,
+    sub_dir: "permissions",
+    system_ext_specific: true,
+}
+
+prebuilt_etc {
+    name: "HeckerSuiteFreeformFeature",
+    src: "configs/hecker-suite-freeform.xml",
     filename_from_src: true,
     sub_dir: "permissions",
     system_ext_specific: true,

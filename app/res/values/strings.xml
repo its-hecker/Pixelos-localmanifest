@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="suite_title">Hecker\'s Suite</string>
-    <string name="suite_summary">App Lock, Motion Sense and Infrared Camera</string>
+    <string name="suite_summary">App Lock, Motion Sense, Gaming mode and Infrared Camera</string>
     <string name="suite_intro">A little more from your Pixel.</string>
     <string name="app_lock_title">App Lock</string>
     <string name="app_lock_summary">Protect selected apps with your 3D face or screen lock.</string>

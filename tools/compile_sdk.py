@@ -92,11 +92,13 @@ def main():
         assert "@hide Hecker's Suite" in permission_java
         (output / "classes").mkdir()
         classpath = os.pathsep.join(str(cache / name) for name in
-                                  ("android.jar", "lottie.jar", "appcompat.jar", "core.jar"))
+                                  ("android-system.jar", "lottie.jar", "appcompat.jar", "core.jar"))
         run("java", "-m", "jdk.compiler/com.sun.tools.javac.Main", "-cp", classpath,
             "-d", output / "classes", output / "generated/org/hecker/suite/R.java",
+            *sorted((ROOT / "tests/platform-api-stubs").rglob("*.java")),
             *sorted((ROOT / "app/src").rglob("*.java")))
-    print("Complete app Java compilation, Android resource linking and native AIDL permission generation: PASS")
+    print("Complete app Java compilation with locked system SDK and checked platform declarations,")
+    print("Android resource linking and native AIDL permission generation: PASS")
 
 
 if __name__ == "__main__": main()

@@ -85,6 +85,33 @@ CAPABILITIES = {
         "DeviceLockedStateListener", "setAppLockEnabledPackageSuccessfullyAuthenticated"],
     "services/core/java/com/android/server/pm/AppLockPackageHelper.java": [
         "PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT", "isDeviceSecure"],
+    "core/java/android/app/ActivityTaskManager.java": [
+        "public static ActivityTaskManager getInstance()",
+        "public void registerTaskStackListener(TaskStackListener listener)",
+        "public void unregisterTaskStackListener(TaskStackListener listener)"],
+    "core/java/android/app/TaskStackListener.java": [
+        "extends ITaskStackListener.Stub", "public void onTaskStackChanged()",
+        "public void onTaskMovedToFront(RunningTaskInfo taskInfo)",
+        "public void onTaskFocusChanged(int taskId, boolean focused)",
+        "public void onTaskRemoved(int taskId)"],
+    "core/java/android/app/ActivityOptions.java": [
+        "setLaunchWindowingMode(@WindowConfiguration.WindowingMode int windowingMode)",
+        "public void setTaskAlwaysOnTop(boolean alwaysOnTop)"],
+    "core/java/android/app/TaskInfo.java": [
+        "public boolean isVisible()", "public boolean isFreeform()", "public boolean isFocused;",
+        "public int displayId;", "public int userId;"],
+    "core/java/android/content/pm/ActivityInfo.java": [
+        "public int resizeMode", "public static boolean isResizeableMode(int mode)"],
+    "core/java/android/view/WindowManager.java": [
+        "default void registerTaskFpsCallback", "default void unregisterTaskFpsCallback"],
+    "core/java/android/window/TaskFpsCallback.java": [
+        "public abstract class TaskFpsCallback", "public abstract void onFpsReported(float fps)"],
+    "core/java/android/window/ScreenCapture.java": [
+        "public static void capture(", "public Builder(int displayId)",
+        "setSecureContentPolicy(", "setProtectedContentPolicy(",
+        "SECURE_CONTENT_POLICY_REDACT = 0", "PROTECTED_CONTENT_POLICY_REDACT = 0"],
+    "core/java/android/hardware/display/DisplayManager.java": [
+        "public void setTemporaryBrightness(int displayId, float brightness)"],
 }
 
 

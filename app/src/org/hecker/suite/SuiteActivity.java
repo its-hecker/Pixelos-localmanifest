@@ -23,6 +23,8 @@ public final class SuiteActivity extends Activity {
                 v -> startActivity(new Intent(this, AppLockActivity.class)));
         Ui.actionCard(this, page, R.string.motion_sense_title, R.string.motion_sense_summary,
                 v -> openMotionSense());
+        Ui.actionCard(this, page, R.string.gaming_title, R.string.gaming_summary,
+                v -> startActivity(new Intent(this, GamingActivity.class)));
         Ui.actionCard(this, page, R.string.ir_title, R.string.ir_summary,
                 v -> startActivity(new Intent(this, InfraredCameraActivity.class)));
         page.addView(Ui.text(this, getString(R.string.credit), 13, false));

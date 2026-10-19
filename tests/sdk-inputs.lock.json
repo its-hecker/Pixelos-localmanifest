@@ -4,6 +4,11 @@
     "base64": true,
     "sha256": "2680325c498b0625da42fe1269973da19cd3e4e70e65574e919fd205c1e6d4d2"
   },
+  "android-system.jar": {
+    "url": "https://android.googlesource.com/platform/prebuilts/sdk/+/3af7c93524be6f51e092b87b17f009f13ee98b43/current/system/android.jar?format=TEXT",
+    "base64": true,
+    "sha256": "362511f996fc32f9b78723ab12db7b6e648fc78a42feb7a0d59550378b3d894c"
+  },
   "lottie.aar": {
     "url": "https://repo1.maven.org/maven2/com/airbnb/android/lottie/6.5.2/lottie-6.5.2.aar",
     "base64": false,
