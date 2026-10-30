@@ -94,7 +94,10 @@
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceProvider.java",
         "services/core/java/com/android/server/biometrics/sensors/face/hidl/HidlToAidlSensorAdapter.java",
         "services/core/java/com/android/server/biometrics/sensors/SensorList.java",
-        "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlSession.java"
+        "services/core/java/com/android/server/biometrics/sensors/face/aidl/AidlSession.java",
+        "packages/SystemUI/src/com/android/systemui/scene/ui/viewmodel/SceneContainerViewModel.kt",
+        "packages/SystemUI/src/com/android/systemui/shade/QQSGestureListener.kt",
+        "packages/SystemUI/src/com/android/systemui/statusbar/pipeline/shared/ui/composable/StatusBarRoot.kt"
       ]
     },
     "hardware/google/camera": {

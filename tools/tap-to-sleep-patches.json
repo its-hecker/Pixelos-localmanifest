@@ -1,0 +1,68 @@
+{
+  "frameworks/base/packages/SystemUI/src/com/android/systemui/scene/ui/viewmodel/SceneContainerViewModel.kt": [
+    {
+      "old": "    private val accessibilityInteractor: AccessibilityInteractor,",
+      "new": "    private val accessibilityInteractor: AccessibilityInteractor,\n    private val tapToSleepListener: javax.inject.Provider<com.android.systemui.shade.QQSGestureListener>,\n    @com.android.systemui.dagger.qualifiers.Application private val tapToSleepContext: android.content.Context,"
+    },
+    {
+      "old": "    /** The scene that should be rendered. */",
+      "new": "    // Keep a separate detector for the scene window; resolve the listener lazily.\n    private val tapToSleepDetector by lazy {\n        android.view.GestureDetector(tapToSleepContext, tapToSleepListener.get())\n    }\n\n    /** The scene that should be rendered. */"
+    },
+    {
+      "old": "        falsingInteractor.onTouchEvent(event)",
+      "new": "        falsingInteractor.onTouchEvent(event)\n        tapToSleepDetector.onTouchEvent(event)"
+    }
+  ],
+  "frameworks/base/packages/SystemUI/src/com/android/systemui/shade/QQSGestureListener.kt": [
+    {
+      "old": "    private var doubleTapToSleepEnabled = false\n    private val quickQsOffsetHeight: Int\n\n    init {\n        val contentObserver = object : ContentObserver(null) {\n            override fun onChange(selfChange: Boolean) {\n                doubleTapToSleepEnabled = Settings.System.getInt(\n                        context.contentResolver, Settings.System.DOUBLE_TAP_SLEEP_GESTURE,\n                        if (context.resources.getBoolean(com.android.internal.\n                                R.bool.config_dt2sGestureEnabledByDefault)) 1 else 0) != 0\n            }\n        }\n        context.contentResolver.registerContentObserver(\n                Settings.System.getUriFor(Settings.System.DOUBLE_TAP_SLEEP_GESTURE),\n                false, contentObserver)\n        contentObserver.onChange(true)\n\n        quickQsOffsetHeight = context.resources.getDimensionPixelSize(\n                com.android.internal.R.dimen.quick_qs_offset_height)\n    }\n\n",
+      "new": "    private val quickQsOffsetHeight: Int = context.resources.getDimensionPixelSize(\n            com.android.internal.R.dimen.quick_qs_offset_height)\n\n    private fun isDoubleTapToSleepEnabled(): Boolean = Settings.System.getIntForUser(\n            context.contentResolver, Settings.System.DOUBLE_TAP_SLEEP_GESTURE,\n            if (context.resources.getBoolean(com.android.internal.R.bool.config_dt2sGestureEnabledByDefault)) 1 else 0,\n            android.os.UserHandle.USER_CURRENT) != 0\n\n"
+    },
+    {
+      "old": "                doubleTapToSleepEnabled &&",
+      "new": "                isDoubleTapToSleepEnabled() &&"
+    },
+    {
+      "old": "                (e.getY() < quickQsOffsetHeight ||\n                    statusBarStateController.getState() == StatusBarState.KEYGUARD &&\n                        !centralSurfaces.isBouncerShowing()) &&",
+      "new": "                !centralSurfaces.isBouncerShowing() &&\n                (e.getY() < quickQsOffsetHeight ||\n                    statusBarStateController.getState() == StatusBarState.KEYGUARD) &&"
+    },
+    {
+      "old": "import android.content.Context\nimport android.database.ContentObserver\nimport android.os.PowerManager",
+      "new": "import android.content.Context\nimport android.os.PowerManager"
+    }
+  ],
+  "frameworks/base/packages/SystemUI/src/com/android/systemui/statusbar/pipeline/shared/ui/composable/StatusBarRoot.kt": [
+    {
+      "old": "    private val shadeWindowRootView: WindowRootView,\n)",
+      "new": "    private val shadeWindowRootView: WindowRootView,\n    private val tapToSleepListener: dagger.Lazy<com.android.systemui.shade.QQSGestureListener>,\n)"
+    },
+    {
+      "old": "                        modifier = Modifier.sysUiResTagContainer(),",
+      "new": "                        modifier = Modifier.sysUiResTagContainer(),\n                        tapToSleepListener = tapToSleepListener.get(),"
+    },
+    {
+      "old": "@Composable\nfun StatusBarRoot(",
+      "new": "@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)\n@Composable\nfun StatusBarRoot("
+    },
+    {
+      "old": "    modifier: Modifier = Modifier,\n) {\n    val displayId",
+      "new": "    modifier: Modifier = Modifier,\n    tapToSleepListener: com.android.systemui.shade.QQSGestureListener? = null,\n) {\n    val displayId"
+    },
+    {
+      "old": "    val touchSlop = LocalViewConfiguration.current.touchSlop",
+      "new": "    val touchSlop = LocalViewConfiguration.current.touchSlop\n    // Observe the whole stream, including taps consumed by AndroidView children.\n    // motionEventSpy does not consume events or interfere with clicks and swipes.\n    val tapToSleepDetector = remember(parent.context, tapToSleepListener) {\n        tapToSleepListener?.let { android.view.GestureDetector(parent.context, it) }\n    }\n    val tapToSleepModifier =\n        if (com.android.systemui.scene.shared.flag.SceneContainerFlag.isEnabled) {\n            Modifier.motionEventSpy { tapToSleepDetector?.onTouchEvent(it) }\n        } else {\n            Modifier\n        }"
+    },
+    {
+      "old": "                modifier.forwardDragAndSwipeToShadeRootView(shadeWindowRootView, touchSlop) {",
+      "new": "                modifier.then(tapToSleepModifier).forwardDragAndSwipeToShadeRootView(shadeWindowRootView, touchSlop) {"
+    },
+    {
+      "old": "                modifier\n                    .thenIf(StatusBarEventForwardingModernization.isEnabled)",
+      "new": "                modifier\n                    .then(tapToSleepModifier)\n                    .thenIf(StatusBarEventForwardingModernization.isEnabled)"
+    },
+    {
+      "old": "import androidx.compose.ui.input.pointer.pointerInput",
+      "new": "import androidx.compose.ui.input.pointer.pointerInput\nimport androidx.compose.ui.input.pointer.motionEventSpy"
+    }
+  ]
+}

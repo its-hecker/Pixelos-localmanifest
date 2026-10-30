@@ -436,3 +436,30 @@ not applying on the lockscreen, without depending on debug properties. It adds n
 clock designs or HeckerOS custom clocks. Existing plugin entries are preserved;
 unfamiliar source policy or a changed stock provider list stops preparation for
 review. Repeated preparation is safe. Rebuild and flash the ROM to use the fix.
+
+## Display: Tap to sleep
+
+The Display toggle (`double_tap_sleep_gesture`) now reaches the scene lockscreen
+and the separate status bar window. Legacy SystemUI already routes these gestures
+to PixelOS's QQS listener; the scene input path did not. The native lockscreen
+double-tap feature also reads a different Secure setting, so enabling the Display
+toggle alone did not enable that path.
+
+Preparation connects scene input to the existing PixelOS listener and observes
+status bar touches without consuming clicks or swipes. Each surface has its own
+gesture detector. The listener reads the current user's toggle when recognizing
+a double tap; dozing, bouncer and false-double-tap checks still guard sleep.
+The status bar detector follows its Compose lifecycle. No wake gesture,
+custom clock or additional preference is added.
+
+The source adapter validates all three files before writing and supports exact
+reversal with `python3 .repo/local_manifests/tools/tap_to_sleep.py --revert`.
+Build preparation applies it automatically. Source checks do not replace a full
+SystemUI/ROM build and phone validation: test enabled/disabled, status bar and
+empty lockscreen, swipes, PIN entry and AOD double-tap-to-wake after flashing.
+
+Validation: 69 host tests; check/apply/reapply/byte-exact revert against pinned
+and current PixelOS sources; the actual patched QQS Kotlin listener compiled
+with platform doubles and passed 17 toggle/user/doze/bouncer/falsing/action/region
+cases. The integration smoke check also runs this compiler probe. Full SystemUI
+compilation and device behavior remain unverified.

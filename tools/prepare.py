@@ -13,6 +13,7 @@ from camera_install import configure as configure_camera, SOURCE as CAMERA_SOURC
 from validate import camera_prebuilt, replaced_vendor_installers, motion_permissions, hardware_setup
 from google_camera import prepare as prepare_google_camera
 from stock_clock_plugins import prepare as prepare_stock_clocks
+from tap_to_sleep import prepare as prepare_tap_to_sleep
 
 
 OVERLAY_ROOTS = [
@@ -77,10 +78,12 @@ def prepare(rom, offline=False, allowlists=(), biometrics=()):
     # Keep source modules available for dependencies, but export only the
     # selected stock prebuilt's full install rules to Make.
     prepare_stock_clocks(rom)  # Reject unfamiliar clock policy before source edits.
+    prepare_tap_to_sleep(rom)
     print("Coral camera install ownership:", configure_camera(rom, write=True))
     # Refuse unfamiliar framework methods before making any framework changes.
     run(rom, face, "apply_framework_fixes.py", "--rom-root", rom, "--check")
     prepare_stock_clocks(rom, write=True)
+    prepare_tap_to_sleep(rom, write=True)
     fetch_arguments = ["--verify-only"] if offline else []
     for plugin in [motion, face]:
         run(rom, plugin, "fetch_prebuilts.py", *fetch_arguments)

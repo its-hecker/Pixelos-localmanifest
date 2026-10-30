@@ -357,6 +357,8 @@ def test(rom, fetch=True):
     first = profiles(rom)
     prepare(rom, offline=True)
     require(profiles(rom) == first, "Repeated setup changed generated outputs")
+    subprocess.run([sys.executable, str(ROOT / "tests/check_tap_native.py"),
+                    "--rom-root", str(rom), "--cache", str(rom / "out/tap-kotlin-check")], check=True)
     check_plugin_blueprints(rom)
     check_face_library_ownership(rom)
     check_native_installs(rom)
