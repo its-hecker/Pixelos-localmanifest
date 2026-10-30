@@ -92,19 +92,23 @@ vendor product. PixelOS's software `ParanoidSense` Face Unlock is disabled befor
 common inheritance so it cannot compete with the real IR hardware provider.
 GoogleParts has no second Motion Sense page.
 
-## Initialize and sync
+## Complete build from mkdir
 
 Use an Android build host with the normal AOSP build dependencies, Repo, Git LFS,
 Python 3 and sufficient RAM/storage for an Android source build.
 
-Create and enter a separate PixelOS build directory:
+Copy the whole block for a fresh PixelOS Coral checkout, through the final ROM build.
+On ServerHive, run it in the provider's initialized Byobu/Tmux/RBE shell.
+The `&&` chain stops at the first failure:
 
 ```bash
-mkdir -p ~/pixelos
-cd ~/pixelos
-repo init -u https://github.com/PixelOS-AOSP/android_manifest.git -b seventeen --git-lfs
-git clone -b main https://github.com/its-hecker/Pixelos-localmanifest.git .repo/local_manifests
-repo sync -c -j8
+mkdir -p ~/pixelos &&
+cd ~/pixelos &&
+git lfs install &&
+repo init -u https://github.com/PixelOS-AOSP/android_manifest.git -b seventeen --git-lfs &&
+git clone --branch main --single-branch https://github.com/its-hecker/Pixelos-localmanifest.git .repo/local_manifests &&
+repo sync -c -j8 --fail-fast --no-clone-bundle --no-tags &&
+PIXEL_BUILD_VARIANT=userdebug PIXEL_BUILD_JOBS=8 bash .repo/local_manifests/build.sh
 ```
 
 Use this manifest in a separate PixelOS checkout. If `.repo/local_manifests`
