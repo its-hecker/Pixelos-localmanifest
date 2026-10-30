@@ -428,3 +428,11 @@ adb shell cmd overlay list --user 0 > pixelos-overlays.txt
 Plugin-specific verification and troubleshooting are documented in each plugin's
 README. Google proprietary inputs retain their upstream attribution and
 immutable checksum records. The phone's own persist/calibration data is required.
+# Stock lockscreen clocks
+
+Build preparation now adds the nine bundled PixelOS clock providers to SystemUI's
+existing plugin allowlist. This fixes clocks previewing in Wallpaper & Styles but
+not applying on the lockscreen, without depending on debug properties. It adds no
+clock designs or HeckerOS custom clocks. Existing plugin entries are preserved;
+unfamiliar source policy or a changed stock provider list stops preparation for
+review. Repeated preparation is safe. Rebuild and flash the ROM to use the fix.

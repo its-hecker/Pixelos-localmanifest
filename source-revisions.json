@@ -85,6 +85,8 @@
       "files": [
         "core/res/res/values/config.xml",
         "packages/SystemUI/res/values/config.xml",
+        "packages/SystemUI/src/com/android/systemui/plugins/PluginsModule.kt",
+        "packages/SystemUI/customization/src/com/android/systemui/shared/clocks/ClockRegistry.kt",
         "services/core/java/com/android/server/biometrics/sensors/face/hidl/HidlToAidlSessionAdapter.java",
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceEnrollClient.java",
         "services/core/java/com/android/server/biometrics/sensors/face/aidl/FaceRevokeChallengeClient.java",
