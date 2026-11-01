@@ -92,7 +92,33 @@ vendor product. PixelOS's software `ParanoidSense` Face Unlock is disabled befor
 common inheritance so it cannot compete with the real IR hardware provider.
 GoogleParts has no second Motion Sense page.
 
+## Complete build from mkdir (default jobs)
+
+Use a fresh directory with the normal Android build dependencies, Repo, Git LFS
+and Python 3 installed. On ServerHive, run this in the provider's initialized
+Byobu/Tmux/RBE shell and keep RBE enabled. Choose this block or the original
+8-job block below for a fresh checkout.
+
+```bash
+mkdir -p ~/pixelos &&
+cd ~/pixelos &&
+git lfs install &&
+repo init -u https://github.com/PixelOS-AOSP/android_manifest.git -b seventeen --git-lfs &&
+git clone --branch main --single-branch https://github.com/its-hecker/Pixelos-localmanifest.git .repo/local_manifests &&
+repo sync -c --fail-fast --no-clone-bundle --no-tags &&
+env -u PIXEL_BUILD_JOBS PIXEL_BUILD_VARIANT=userdebug bash .repo/local_manifests/build.sh
+```
+
+`env -u PIXEL_BUILD_JOBS` clears an inherited job override for this invocation,
+so `build.sh` uses its default available logical CPU count (`nproc`). The source
+sync also uses Repo's default download parallelism. The helper retains all
+preparation and output checks. ROM output: `out/target/product/coral/PixelOS_*.zip`.
+
 ## Complete build from mkdir
+
+**8 build jobs:** this original block explicitly sets `PIXEL_BUILD_JOBS=8`.
+Other examples in this guide that set the same variable also use eight build
+jobs; `repo sync -j8` separately controls source downloads.
 
 Use an Android build host with the normal AOSP build dependencies, Repo, Git LFS,
 Python 3 and sufficient RAM/storage for an Android source build.
